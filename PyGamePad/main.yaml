@@ -1,4 +1,0 @@
-main:
-  test: True
-devices:
-  - nostromo.yaml

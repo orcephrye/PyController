@@ -25,6 +25,7 @@ class Device(yaml.YAMLObject):
     name = None
     keys = None
     keymapper = None
+    deviceKeyMap = None
 
     device = None
     outDevice = None
@@ -40,7 +41,7 @@ class Device(yaml.YAMLObject):
 
     def setKeyMapper(self, keymapper):
         self.keymapper = keymapper
-        self.keymapper.addDeviceKeyMapping(self.name, self.keys)
+        self.deviceKeyMap = self.keymapper.addDeviceKeyMapping(self.name, self.keys)
 
     def checkDeviceVariables(self):
         self.vendorid = str(self.vendorid)
@@ -57,17 +58,20 @@ class Device(yaml.YAMLObject):
         return self.device
 
     def mapEvent(self, event):
-        return self.keymapper.mapEvent(event, self.name)
+        return self.keymapper.mapEvent(event, self.deviceKeyMap)
 
     def grab(self):
+        log.info("Grabbing input devices associated with: %s" % self.name)
         for dev in self.device:
             dev.grab()
 
     def ungrab(self):
+        log.info("Releasing input devices associated with: %s" % self.name)
         for dev in self.device:
             dev.ungrab()
 
     def close(self):
+        log.info("Closing output devices associated with: %s" % self.name)
         self.outDevice.close()
 
     def generateOuputDevice(self):
@@ -107,13 +111,16 @@ class DeviceManager(object):
             device.findDevice(self.inputDevices)
 
     def grabDevices(self):
+        log.info("Grabbing all configured devices")
         for device in self.devices:
             device.grab()
 
     def ungrabDevices(self):
+        log.info("Releasing all configured devices")
         for device in self.devices:
             device.ungrab()
 
     def closeDevices(self):
+        log.info("Closing all evdev UInput devices")
         for device in self.devices:
             device.close()

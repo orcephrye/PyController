@@ -8,8 +8,9 @@
 
 
 import logging
-from select import select
 import threading
+from select import select
+from evdev import ecodes
 
 
 # logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
@@ -22,15 +23,16 @@ class DeviceInputWorker(threading.Thread):
     inputDevices = None
     outputDevice = None
     killer = None
-    events = []
 
     def __init__(self, device, killer, autoRun=True):
+        log.info("Initializing Device Input Worker for device: %s" % device.name)
         self.device = device
         self.inputDevices = {dev.fd: dev for dev in self.device.device}
         self.outputDevice = self.device.outDevice
         self.killer = killer
         super(DeviceInputWorker, self).__init__()
         if autoRun:
+            log.info("Auto starting Device Input Worker for: %s" % device.name)
             self.start()
 
     def run(self):
@@ -39,9 +41,10 @@ class DeviceInputWorker(threading.Thread):
                 r, w, x = select(self.inputDevices, [], [], 1)
                 for fd in r:
                     for event in self.inputDevices[fd].read():
-                        print event
-                        self.events.append(event)
-                        self.outputDevice.write_event(self.device.mapEvent(event))
+                        log.debug("The event: ( %s ) : was received and will now be mapped and written " % event)
+                        if event.type == ecodes.EV_KEY:
+                            self.outputDevice.write_event(self.device.mapEvent(event))
+                        self.outputDevice.write_event(event)
                 self.outputDevice.syn()
         except Exception as e:
             log.error("An Exception occurred on Device: %s\n%s\n" % (self.device.name, e))

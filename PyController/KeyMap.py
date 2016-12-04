@@ -19,11 +19,13 @@ class KeyMapper(object):
 
     deviceKeyMap = None
     profileKeyMap = None
+    settings = None
     down = long(1)
     up = long(0)
 
-    def __init__(self):
+    def __init__(self, settings):
         super(KeyMapper, self).__init__()
+        self.settings = settings
         self.deviceKeyMap = {}
         self.profileKeyMap = {}
 
@@ -33,6 +35,7 @@ class KeyMapper(object):
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
                 continue
             self.deviceKeyMap[deviceName][getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
+        return self.deviceKeyMap[deviceName]
 
     def updateProfileKeyMap(self, profileKeys):
         self.profileKeyMap = {}
@@ -41,11 +44,15 @@ class KeyMapper(object):
                 continue
             self.profileKeyMap[getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
 
-    def mapEvent(self, event, device):
-        keymap = self.deviceKeyMap.get(device, {}) or {}
-        keymap.update(self.profileKeyMap)
-        if event.code in keymap:
-            return InputEvent(event.sec, event.usec, ecodes.EV_KEY, keymap[event.code], event.value)
+    def mapEvent(self, event, deviceKeyMap):
+        if event.code in self.profileKeyMap:
+            log.debug("Profile key mapping of: %s was detected replacing it for %s" %
+                      (event.code, self.profileKeyMap[event.code]))
+            return InputEvent(event.sec, event.usec, ecodes.EV_KEY, self.profileKeyMap[event.code], event.value)
+        elif event.code in deviceKeyMap:
+            log.debug("Device key mapping of: %s was detected replacing it for %s" %
+                      (event.code, deviceKeyMap[event.code]))
+            return InputEvent(event.sec, event.usec, ecodes.EV_KEY, deviceKeyMap[event.code], event.value)
         return event
 
     @staticmethod
