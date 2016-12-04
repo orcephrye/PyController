@@ -7,9 +7,14 @@
 # Description: This package holds the Device class which keeps information about a particular device.
 
 
+import logging
 import yaml
 import evdev
-from evdev import InputDevice
+from evdev import InputDevice, UInput
+
+
+# logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
+log = logging.getLogger('Device')
 
 
 class Device(yaml.YAMLObject):
@@ -19,8 +24,10 @@ class Device(yaml.YAMLObject):
     productid = None
     name = None
     keys = None
+    keymapper = None
 
     device = None
+    outDevice = None
 
     def __init__(self, vendorid, productid, name, keys=None):
         self.vendorid = str(vendorid)
@@ -31,7 +38,11 @@ class Device(yaml.YAMLObject):
         else:
             self.keys = keys
 
-    def _checkDeviceVariables(self):
+    def setKeyMapper(self, keymapper):
+        self.keymapper = keymapper
+        self.keymapper.addDeviceKeyMapping(self.name, self.keys)
+
+    def checkDeviceVariables(self):
         self.vendorid = str(self.vendorid)
         self.productid = str(self.productid)
         self.name = str(self.name)
@@ -45,13 +56,22 @@ class Device(yaml.YAMLObject):
                 self.device.append(dev)
         return self.device
 
-    def grabDevice(self):
+    def mapEvent(self, event):
+        return self.keymapper.mapEvent(event, self.name)
+
+    def grab(self):
         for dev in self.device:
             dev.grab()
 
-    def ungrabDevice(self):
+    def ungrab(self):
         for dev in self.device:
             dev.ungrab()
+
+    def close(self):
+        self.outDevice.close()
+
+    def generateOuputDevice(self):
+        self.outDevice = UInput.from_device(*self.device, name=self.name + '_input')
 
     @staticmethod
     def _toHex(hexString, standardLength=4):
@@ -62,10 +82,12 @@ class DeviceManager(object):
 
     configLoader = None
     inputDevices = None
+    keymapper = None
     devices = None
 
-    def __init__(self, configLoader):
+    def __init__(self, configLoader, keymapper):
         self.configLoader = configLoader
+        self.keymapper = keymapper
         self.inputDevices = [InputDevice(fn) for fn in evdev.list_devices()]
         self.getDeviceConfigs()
 
@@ -73,6 +95,11 @@ class DeviceManager(object):
         self.devices = []
         for device in self.configLoader.devices:
             self.devices.append(self.configLoader.loadConfig(device, device=True))
+        for device in self.devices:
+            device.findDevice(self.inputDevices)
+            device.checkDeviceVariables()
+            device.setKeyMapper(self.keymapper)
+            device.generateOuputDevice()
         return self.devices
 
     def findDevices(self):
@@ -81,8 +108,12 @@ class DeviceManager(object):
 
     def grabDevices(self):
         for device in self.devices:
-            device.grabDevice()
+            device.grab()
 
     def ungrabDevices(self):
         for device in self.devices:
-            device.ungrabDevice()
+            device.ungrab()
+
+    def closeDevices(self):
+        for device in self.devices:
+            device.close()

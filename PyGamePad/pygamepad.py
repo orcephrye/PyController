@@ -7,22 +7,29 @@
 # Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux.
 
 
-import evdev
+from time import sleep
 import signal
-from evdev import InputDevice, UInput
-from select import select
 from threading import Lock
+from Devices import DeviceManager
+from DeviceWorker import DeviceInputWorker as DIW
+from ConfigLoader import ConfigLoader as Settings
+from KeyMap import KeyMapper
+import logging
 
 
-class GracefulKiller:
+# logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
+log = logging.getLogger('PyControlMain')
+
+
+class GracefulKiller(object):
 
     kill_now = None
     _kill_now = None
     __LOCK__ = None
 
     def __init__(self):
-        self.kill_now = False
         self.__LOCK__ = Lock()
+        self.kill_now = False
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
 
@@ -54,77 +61,39 @@ class GracefulKiller:
             pass
 
 
-class PyPad(object):
+class PyGamePad(object):
 
     killer = None
-    inputDevices = None
-    captureDevices = None
-    devices = None
-    ui = None
-    vendorID = "1532"
-    productID = "0111"
+    settings = None
+    devManager = None
+    devWorkers = None
+    keymapper = None
 
     def __init__(self):
         self.killer = GracefulKiller()
-        self.captureDevices = []
-        self.inputDevices = [InputDevice(fn) for fn in evdev.list_devices()]
-        self.devices = self._setupDevices()
-        self.ui = PyPad._setupOutputDevice(self.captureDevices)
+        self.keymapper = KeyMapper()
+        self.settings = Settings()
+        self.devManager = DeviceManager(self.settings, self.keymapper)
+        self.devWorkers = []
 
-    def _setupDevices(self):
-        for dev in self.inputDevices:
-            if self.vendorID in PyPad._toHex(dev.info.vendor) and self.productID in PyPad._toHex(dev.info.product):
-                self.captureDevices.append(dev)
-
-        PyPad._printCaptureDevices(self.captureDevices)
-
-        PyPad._grabDevices(self.captureDevices)
-        return {dev.fd: dev for dev in self.captureDevices}
+    def preRunCheck(self):
+        pass
 
     def run(self):
-        while True:
-            if self.killer.kill_now:
-                PyPad._ungrabDevices(self.captureDevices)
-                break
-            r, w, x = select(self.devices, [], [])
-            for fd in r:
-                for event in self.devices[fd].read():
-                    print event
-                    PyPad._writeEvent(self.ui, event)
+        self.devManager.grabDevices()
 
-    @staticmethod
-    def _printCaptureDevices(cDevices):
-        for dev in cDevices:
-            print dev
+        for device in self.devManager.devices:
+            self.devWorkers.append(DIW(device, killer=self.killer))
 
-    @staticmethod
-    def _setupOutputDevice(cDevices):
-        if len(cDevices) == 2:
-            return UInput.from_device(cDevices[0], cDevices[1], name='pynostromo')
-        elif len(cDevices) == 1:
-            return UInput.from_device(cDevices[0], name='pynostromo')
-        else:
-            raise Exception('Did not detect the correct number of devices')
+        while not self.killer.kill_now:
+            sleep(1)
 
-    @staticmethod
-    def _toHex(hexString, standardLength=4):
-        return hex(hexString)[2:].rjust(standardLength, '0')
+        for worker in self.devWorkers:
+            worker.join(timeout=1)
 
-    @staticmethod
-    def _grabDevices(cDevices):
-        for dev in cDevices:
-            dev.grab()
-
-    @staticmethod
-    def _ungrabDevices(cDevices):
-        for dev in cDevices:
-            dev.ungrab()
-
-    @staticmethod
-    def _writeEvent(ui, event):
-        ui.write_event(event)
-        ui.syn()
-
+        self.devManager.ungrabDevices()
+        self.devManager.closeDevices()
+        return
 
 if __name__ == '__main__':
-    PyPad().run()
+    PyGamePad().run()

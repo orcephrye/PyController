@@ -7,12 +7,17 @@
 # Description: This package loads the configuration files.
 
 
+import logging
 import yaml
 
 
 mainConfigFile = "main.yaml"
 deviceDir = "devices.d/"
 profileDir = "profiles.d/"
+
+
+# logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
+log = logging.getLogger('ConfigLoader')
 
 
 class ConfigLoader(object):
