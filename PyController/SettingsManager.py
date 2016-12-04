@@ -2,7 +2,7 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.1
+# Version: 0.2
 # Date: 12/01/2016
 # Description: This package loads the configuration files.
 
@@ -25,14 +25,31 @@ class SettingsManager(object):
     mainConfig = None
 
     def __init__(self):
+        """
+            This whole classes job is to pull yaml config files particular the main.yaml which is has a series of
+            'shortcut' protected variables to grab the useful information out of the main.yaml config file.
+        """
         super(SettingsManager, self).__init__()
         self.loadMainConfig()
 
     def loadMainConfig(self):
+        """
+            This logs the main config file. This is necessary for the program to work.
+        :return: None
+        """
         log.info("Loading main config file: %s" % mainConfigFile)
         self.mainConfig = self.loadConfig(mainConfigFile)
 
     def loadConfig(self, filepath, loadYaml=True, device=False, profile=False):
+        """
+            This method loads a file from disk and returns it. By default the loadYaml parameter is set to True so the
+            method will first try to pass the file contents through 'yaml.load' and then return that.
+        :param filepath: str: a filename
+        :param loadYaml: bool: Default True. Tells the method whether to pass the file contents through 'yaml.load'.
+        :param device: bool: Default False: Tells the method to pre-append the deviceDir to the filename.
+        :param profile: bool: Default False: Tells the method to pre-append the profileDir to the filename.
+        :return: str or dict
+        """
         if device:
             filepath = self.deviceDir + filepath
         elif profile:

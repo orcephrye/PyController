@@ -1,0 +1,4 @@
+default:
+  executable: CompanyOfHeroes2 # This should be the name of the executable that runs your game. IE CompanyOfHeroes
+  keys: # Below is a list of keys that should be remapped
+    KEY_LEFTALT: KEY_U # This must be spaced just like this. Invalid yaml entires will cause an error. Invalid KEY_* entires will be ignroed.

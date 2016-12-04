@@ -1,4 +1,0 @@
-default:
-  executable: None #This should be the name of the executable that runs your game. IE CompanyOfHeroes
-  keys: #Below is a list of keys that should be remapped
-    # KEY_A: KEY_B

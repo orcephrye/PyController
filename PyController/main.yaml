@@ -7,5 +7,6 @@ main:
   loglevel: INFO
 devices:
   - nostromo.yaml
+# - exampleDevice.yaml
 profiles:
-  - default.yaml   wsadAq qweaD
+#  - exampleProfile.yaml

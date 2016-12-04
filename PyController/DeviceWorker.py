@@ -2,7 +2,7 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.1
+# Version: 0.2
 # Date: 12/01/2016
 # Description: This package holds the code that grabs input from the device and reads it out to the custom evdev input
 
@@ -18,6 +18,9 @@ log = logging.getLogger('DeviceInputWorker')
 
 
 class DeviceInputWorker(threading.Thread):
+    """
+        This is a simple implementation of a thread. It should auto start and not die until the killer says so.
+    """
 
     device = None
     inputDevices = None
@@ -25,6 +28,13 @@ class DeviceInputWorker(threading.Thread):
     killer = None
 
     def __init__(self, device, killer, autoRun=True):
+        """
+            This takes information from the Device object and puts it into its own local variables to be used by the
+            'run' method later.
+        :param device: Device object
+        :param killer: GraceFullKiller object
+        :param autoRun: bool: Default: True
+        """
         log.info("Initializing Device Input Worker for device: %s" % device.name)
         self.device = device
         self.inputDevices = {dev.fd: dev for dev in self.device.device}
@@ -36,6 +46,12 @@ class DeviceInputWorker(threading.Thread):
             self.start()
 
     def run(self):
+        """
+            Overridden method of the Thread class. Runs in an new thread when you run 'self.start()'. This creates a
+            while loop that will not end until the killer tells it is over or an exception happens. Its job is to listen
+            for events and write them out to the custom UInput device after they have been mapped.
+        :return:
+        """
         try:
             while not self.killer.kill_now:
                 r, w, x = select(self.inputDevices, [], [], 1)
