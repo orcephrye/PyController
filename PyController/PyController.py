@@ -100,7 +100,8 @@ class PyController(object):
 
         log.info("Starting Device Input Worker Threads")
         for device in self.devManager.devices:
-            self.devWorkers.append(DIW(device, killer=self.killer))
+            if device.isValid:
+                self.devWorkers.append(DIW(device, killer=self.killer))
 
         while not self.killer.kill_now:
             sleep(1)

@@ -1,0 +1,6 @@
+--- !Device
+name: Tartarus
+vendorid: '1532'
+productid: '0201'
+#keys:
+#  KEY_A: KEY_L

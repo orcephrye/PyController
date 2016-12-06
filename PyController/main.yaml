@@ -1,12 +1,13 @@
 main:
   deviceDir: 'devices.d'
   profileDir: 'profiles.d'
-  logging: False # By Default this is set to False change to True if you want to log
+  logging: True # By Default this is set to False change to True if you want to log
   logFile: '' # Suggestion is '/var/log/pycontroller.log' however be default this is empty so logging can be enabled
               # without having to log to a file.
-  loglevel: INFO
+  loglevel: DEBUG # DEBUG, INFO, WARNING, ERROR, CRITICAL (DEBUG is the most verbose)
 devices:
   - nostromo.yaml
+  - tartarus.yaml
 # - exampleDevice.yaml
 profiles:
 #  - exampleProfile.yaml

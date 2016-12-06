@@ -60,7 +60,8 @@ class DeviceInputWorker(threading.Thread):
                         log.debug("The event: ( %s ) : was received and will now be mapped and written " % event)
                         if event.type == ecodes.EV_KEY:
                             self.outputDevice.write_event(self.device.mapEvent(event))
-                        self.outputDevice.write_event(event)
+                        else:
+                            self.outputDevice.write_event(event)
                 self.outputDevice.syn()
         except Exception as e:
             log.error("An Exception occurred on Device: %s\n%s\n" % (self.device.name, e))

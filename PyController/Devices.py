@@ -61,8 +61,9 @@ class Device(yaml.YAMLObject):
         """
         self.checkDeviceVariables()
         self.findDevice(inputDevices)
-        self.setKeyMapper(keymapper)
-        self.generateOuputDevice()
+        if self.isValid:    # Continue if 'findDevice' found the input devices on the OS.
+            self.setKeyMapper(keymapper)
+            self.generateOuputDevice()
 
     def setKeyMapper(self, keymapper):
         """
@@ -85,6 +86,7 @@ class Device(yaml.YAMLObject):
         self.name = str(self.name)
         if self.keys is None or type(self.keys) is not dict:
             self.keys = {}
+        self.device = []
 
     def findDevice(self, deviceList):
         """
@@ -135,8 +137,9 @@ class Device(yaml.YAMLObject):
             method deletes that device.
         :return:
         """
-        log.info("Closing output devices associated with: %s" % self.name)
-        self.outDevice.close()
+        if self.outDevice:
+            log.info("Closing output devices associated with: %s" % self.name)
+            self.outDevice.close()
 
     def generateOuputDevice(self):
         """
@@ -145,6 +148,12 @@ class Device(yaml.YAMLObject):
         :return:
         """
         self.outDevice = UInput.from_device(*self.device, name=self.name + '_input')
+
+    @property
+    def isValid(self):
+        if type(self.device) is not list:
+            return False
+        return len(self.device) > 0
 
     @staticmethod
     def _toHex(hexString, standardLength=4):
