@@ -52,6 +52,9 @@ class Device(yaml.YAMLObject):
         else:
             self.keys = keys
 
+    def __hash__(self):
+        return hash(self.name)
+
     def setup(self, keymapper, inputDevices):
         """
             Used by the DeviceManager. This checks things and finishes setting up the Device with the necessary
@@ -72,7 +75,7 @@ class Device(yaml.YAMLObject):
         :return: None
         """
         self.keymapper = keymapper
-        self.deviceKeyMap = self.keymapper.addDeviceKeyMapping(self.name, self.keys)
+        self.deviceKeyMap = self.keymapper.addDeviceKeyMapping(self, self.keys)
 
     def checkDeviceVariables(self):
         """

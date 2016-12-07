@@ -36,24 +36,24 @@ class KeyMapper(object):
         self.deviceKeyMap = {}
         self.profileKeyMap = {}
 
-    def addDeviceKeyMapping(self, deviceName, keys):
+    def addDeviceKeyMapping(self, device, keys):
         """
             This creates a dictionary of key mappings for a particular device.
-        :param deviceName: str
+        :param device: str
         :param keys: dictionary
         :return: dictionary
         """
-        self.deviceKeyMap[deviceName] = {}
+        self.deviceKeyMap[device] = {}
         for inputKey, mapKey in keys.items():
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
                 continue
             if type(mapKey) is list:
-                self.deviceKeyMap[deviceName][getattr(ecodes, inputKey)] = []
+                self.deviceKeyMap[device][getattr(ecodes, inputKey)] = []
                 for mapK in mapKey:
-                    self.deviceKeyMap[deviceName][getattr(ecodes, inputKey)].append(getattr(ecodes, mapK))
+                    self.deviceKeyMap[device][getattr(ecodes, inputKey)].append(getattr(ecodes, mapK))
             else:
-                self.deviceKeyMap[deviceName][getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
-        return self.deviceKeyMap[deviceName]
+                self.deviceKeyMap[device][getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
+        return self.deviceKeyMap[device]
 
     def updateProfileKeyMap(self, profileKeys):
         """
@@ -79,7 +79,7 @@ class KeyMapper(object):
         if event.code in self.profileKeyMap:
             log.debug("Profile key mapping of: %s was detected replacing it for %s" %
                       (event.code, self.profileKeyMap[event.code]))
-            return InputEvent(event.sec, event.usec, ecodes.EV_KEY, self.profileKeyMap[event.code], event.value)
+            event.code = self.profileKeyMap[event.code]
         elif event.code in deviceKeyMap:
             log.debug("Device key mapping of: %s was detected replacing it for %s" %
                       (event.code, deviceKeyMap[event.code]))

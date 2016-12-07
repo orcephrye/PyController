@@ -11,7 +11,7 @@ import logging
 import signal
 from time import sleep
 from threading import Lock
-from Devices import DeviceManager
+from DevicesManager import DeviceManager
 from DeviceWorker import DeviceInputWorker as DIW
 from SettingsManager import SettingsManager as Settings
 from KeyMap import KeyMapper
