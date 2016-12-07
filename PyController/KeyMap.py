@@ -47,7 +47,12 @@ class KeyMapper(object):
         for inputKey, mapKey in keys.items():
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
                 continue
-            self.deviceKeyMap[deviceName][getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
+            if type(mapKey) is list:
+                self.deviceKeyMap[deviceName][getattr(ecodes, inputKey)] = []
+                for mapK in mapKey:
+                    self.deviceKeyMap[deviceName][getattr(ecodes, inputKey)].append(getattr(ecodes, mapK))
+            else:
+                self.deviceKeyMap[deviceName][getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
         return self.deviceKeyMap[deviceName]
 
     def updateProfileKeyMap(self, profileKeys):
@@ -78,7 +83,14 @@ class KeyMapper(object):
         elif event.code in deviceKeyMap:
             log.debug("Device key mapping of: %s was detected replacing it for %s" %
                       (event.code, deviceKeyMap[event.code]))
-            return InputEvent(event.sec, event.usec, ecodes.EV_KEY, deviceKeyMap[event.code], event.value)
+            if type(deviceKeyMap[event.code]) is list:
+                tempUsec = event.usec
+                tempList = []
+                for code in deviceKeyMap[event.code]:
+                    tempUsec += 1
+                    tempList.append(InputEvent(event.sec, tempUsec, ecodes.EV_KEY, code, event.value))
+                return tempList
+            event.code = deviceKeyMap[event.code]
         return event
 
     @staticmethod
@@ -91,4 +103,9 @@ class KeyMapper(object):
         :param mapKey: str
         :return: bool
         """
+        if type(mapKey) is list:
+            for mapk in mapKey:
+                if not hasattr(ecodes, mapk):
+                    return False
+            return hasattr(ecodes, inputKey)
         return hasattr(ecodes, inputKey) and hasattr(ecodes, mapKey)
