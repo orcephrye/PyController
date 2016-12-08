@@ -1,4 +1,8 @@
-default:
+default: # This will be the name of the profile
   executable: CompanyOfHeroes2 # This should be the name of the executable that runs your game. IE CompanyOfHeroes
   keys: # Below is a list of keys that should be remapped
     KEY_LEFTALT: KEY_U # This must be spaced just like this. Invalid yaml entires will cause an error. Invalid KEY_* entires will be ignroed.
+example2: # There can be multiple profiles in the same config file.
+  executable: [AgeOfEmpires, AlienIsolation] # You can link mutlple games to one profile
+  keys:
+    KEY_A: KEY_B

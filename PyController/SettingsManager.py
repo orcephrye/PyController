@@ -23,6 +23,7 @@ log = logging.getLogger('ConfigLoader')
 class SettingsManager(object):
 
     mainConfig = None
+    profilesConfig = None
 
     def __init__(self):
         """
@@ -31,6 +32,7 @@ class SettingsManager(object):
         """
         super(SettingsManager, self).__init__()
         self.loadMainConfig()
+        self.loadProfiles()
 
     def loadMainConfig(self):
         """
@@ -60,6 +62,11 @@ class SettingsManager(object):
             return yaml.load(config)
         return config
 
+    def loadProfiles(self):
+        self.profilesConfig = {}
+        for profile in self.profiles:
+            self.profilesConfig.update(self.loadConfig(profile, profile=True))
+
     @property
     def devices(self):
         if not self.mainConfig:
@@ -71,6 +78,20 @@ class SettingsManager(object):
         if not self.mainConfig:
             return []
         return self.mainConfig.get('profiles', []) or []
+
+    @property
+    def games(self):
+        if not self.profilesConfig:
+            return []
+        games = [profile['executable'] for profile in self.profilesConfig.values() if 'executable' in profile]
+        outGames = []
+        for game in games:
+            if type(game) is list:
+                outGames.extend(game)
+            else:
+                outGames.append(game)
+        del games
+        return set(map(str.lower, outGames))
 
     @property
     def deviceDir(self):

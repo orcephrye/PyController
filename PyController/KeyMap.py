@@ -22,6 +22,7 @@ class KeyMapper(object):
 
     deviceKeyMap = None
     profileKeyMap = None
+    activeProfile = None
     settings = None
     down = long(1)
     up = long(0)
@@ -55,7 +56,7 @@ class KeyMapper(object):
                 self.deviceKeyMap[device][getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
         return self.deviceKeyMap[device]
 
-    def updateProfileKeyMap(self, profileKeys):
+    def updateProfileKeyMap(self, profileKeys, profileName):
         """
             This updates the 'profileKeyMap' variable with more key mappings.
         :param profileKeys: dictionary
@@ -67,6 +68,12 @@ class KeyMapper(object):
                 log.warn("This key map pair is invalid - Input Key: %s Replacement Key: %s" % (inputKey, mapKey))
                 continue
             self.profileKeyMap[getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
+        self.activeProfile = profileName
+
+    def removeProfile(self, profileName):
+        if profileName == self.activeProfile:
+            self.profileKeyMap = {}
+            self.activeProfile = None
 
     def mapEvent(self, event, deviceKeyMap):
         """
