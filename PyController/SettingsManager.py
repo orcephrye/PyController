@@ -42,15 +42,15 @@ class SettingsManager(object):
         log.info("Loading main config file: %s" % mainConfigFile)
         self.mainConfig = self.loadConfig(mainConfigFile)
 
-    def loadConfig(self, filepath, loadYaml=True, device=False, profile=False):
+    def loadConfig(self, filepath, load_yaml=True, device=False, profile=False):
         """
             This method loads a file from disk and returns it. By default the loadYaml parameter is set to True so the
             method will first try to pass the file contents through 'yaml.load' and then return that.
         :param filepath: str: a filename
-        :param loadYaml: bool: Default True. Tells the method whether to pass the file contents through 'yaml.load'.
+        :param load_yaml: bool: Default True. Tells the method whether to pass the file contents through 'yaml.load'.
         :param device: bool: Default False: Tells the method to pre-append the deviceDir to the filename.
         :param profile: bool: Default False: Tells the method to pre-append the profileDir to the filename.
-        :return: str or dict
+        :return: dict or str
         """
         if device:
             filepath = self.deviceDir + filepath
@@ -58,7 +58,7 @@ class SettingsManager(object):
             filepath = self.profileDir + filepath
         with file(filepath) as f:
             config = f.read()
-        if loadYaml:
+        if load_yaml:
             return yaml.load(config)
         return config
 
@@ -83,14 +83,12 @@ class SettingsManager(object):
     def games(self):
         if not self.profilesConfig:
             return []
-        games = [profile['executable'] for profile in self.profilesConfig.values() if 'executable' in profile]
         outGames = []
-        for game in games:
+        for game in [profile['executable'] for profile in self.profilesConfig.values() if 'executable' in profile]:
             if type(game) is list:
                 outGames.extend(game)
             else:
                 outGames.append(game)
-        del games
         return set(map(str.lower, outGames))
 
     @property

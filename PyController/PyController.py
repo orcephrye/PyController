@@ -21,7 +21,7 @@ log = logging.getLogger('PyControlMain')
 
 class GracefulKiller(object):
     """
-        This class is designed to be instatiated once and then passed around to all the DeviceInputWorker classes to be
+        This class is designed to be instantiated once and then passed around to all the DeviceInputWorker classes to be
         used as a stop gap for when a kill signal as been received. It is also used in the 'run' method of the
         PyController class. It simply changes the 'kill_now' from a False to a True allowing for a while loop to exit.
     """
@@ -67,7 +67,7 @@ class GracefulKiller(object):
 
 class PyController(object):
     """
-        The main function of the PyController project. This sets up all the other packages and 'gets the ball rolling'.
+        The main class of the PyController project. This sets up all the other packages and 'gets the ball rolling'.
         It takes no arguments but uses the SettingsManager class to pull settings from the main.yaml config file.
     """
 

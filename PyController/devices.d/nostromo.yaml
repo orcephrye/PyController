@@ -2,6 +2,6 @@
 name: Nostromo
 vendorid: '1532'
 productid: '0111'
-#keys:
-#  KEY_LEFTALT: KEY_U
-#  KEY_A: [KEY_L, KEY_P]
+keys:
+  KEY_LEFTALT: KEY_U
+# KEY_A: [KEY_L, KEY_P]
