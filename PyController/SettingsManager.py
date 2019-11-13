@@ -59,7 +59,7 @@ class SettingsManager(object):
         with file(filepath) as f:
             config = f.read()
         if load_yaml:
-            return yaml.load(config)
+            return yaml.load(config, Loader=yaml.Loader)
         return config
 
     def loadProfiles(self):

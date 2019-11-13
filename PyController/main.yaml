@@ -7,7 +7,7 @@ main:
   loglevel: DEBUG # DEBUG, INFO, WARNING, ERROR, CRITICAL (DEBUG is the most verbose)
 devices:
   - nostromo.yaml
-  - tartarus.yaml
+#  - tartarus.yaml
 # - exampleDevice.yaml
 profiles:
 #  - exampleProfile.yaml

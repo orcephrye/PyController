@@ -4,4 +4,5 @@ vendorid: '1532'
 productid: '0111'
 keys:
   KEY_LEFTALT: KEY_U
+  KEY_F: KEY_T
 # KEY_A: [KEY_L, KEY_P]
