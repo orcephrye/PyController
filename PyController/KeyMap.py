@@ -8,6 +8,7 @@
 
 
 import logging
+import time
 from evdev import InputEvent, ecodes
 
 
@@ -24,8 +25,6 @@ class KeyMapper(object):
     profileKeyMap = None
     activeProfile = None
     settings = None
-    down = long(1)
-    up = long(0)
 
     def __init__(self, settings):
         """
@@ -44,16 +43,28 @@ class KeyMapper(object):
         :param keys: dictionary
         :return: dictionary
         """
-        self.deviceKeyMap[device] = {}
+        if device.type == 'EV_KEY':
+            self.deviceKeyMap[device] = {i: (i, ) for i in device.evdevice.capabilities().get(1, [])}
+        elif device.type == 'EV_BUTTON':
+            self.deviceKeyMap[device] = {i: (i, ) for i in device.evdevice.capabilities().get(2, [])}
+        else:
+            raise ValueError(f'The device.type is: {device.type} but it needs to be ether EV_KEY or EV_BUTTON')
+
+        # log.debug(f'The capabilities of the evdevice: {device} is: {self.deviceKeyMap[device]}')
+
         for inputKey, mapKey in keys.items():
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
+                log.warning(f'The key map of input: {inputKey} mapped to {mapKey} failed validation.')
                 continue
             if type(mapKey) is list:
-                self.deviceKeyMap[device][getattr(ecodes, inputKey)] = []
-                for mapK in mapKey:
-                    self.deviceKeyMap[device][getattr(ecodes, inputKey)].append(getattr(ecodes, mapK))
+                self.deviceKeyMap[device][getattr(ecodes, inputKey)] = tuple([getattr(ecodes, i) for i in mapKey])
             else:
-                self.deviceKeyMap[device][getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
+                self.deviceKeyMap[device][getattr(ecodes, inputKey)] = (getattr(ecodes, mapKey), )
+
+        for inputKey, outputKeyTuple in self.deviceKeyMap[device].items():
+            self.deviceKeyMap[device][inputKey] = tuple([InputEvent(time.time(), 0, ecodes.EV_KEY, key, 1)
+                                                         for key in outputKeyTuple])
+
         return self.deviceKeyMap[device]
 
     def updateProfileKeyMap(self, profileKeys, profileName):
@@ -65,7 +76,7 @@ class KeyMapper(object):
         self.profileKeyMap = {}
         for inputKey, mapKey in profileKeys.items():
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
-                log.warn("This key map pair is invalid - Input Key: %s Replacement Key: %s" % (inputKey, mapKey))
+                log.warning("This key map pair is invalid - Input Key: %s Replacement Key: %s" % (inputKey, mapKey))
                 continue
             self.profileKeyMap[getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
         self.activeProfile = profileName
@@ -75,30 +86,47 @@ class KeyMapper(object):
             self.profileKeyMap = {}
             self.activeProfile = None
 
-    def mapEvent(self, event, deviceKeyMap):
+    def mapEvent(self, event, device):
         """
             This takes an event and a deviceKeyMap. The method first checks the profileKeyMap and will ignore the
             deviceKeyMap as anything in a profile should override the device settings.
         :param event: InputEvent object
-        :param deviceKeyMap: dictionary supplies by a Device
+        :param device: Device object
         :return: InputEvent
         """
-        if event.code in self.profileKeyMap:
-            log.debug("Profile key mapping of: %s was detected replacing it for %s" %
-                      (event.code, self.profileKeyMap[event.code]))
-            event.code = self.profileKeyMap[event.code]
-        elif event.code in deviceKeyMap:
-            log.debug("Device key mapping of: %s was detected replacing it for %s" %
-                      (event.code, deviceKeyMap[event.code]))
-            if type(deviceKeyMap[event.code]) is list:
-                tempUsec = event.usec
-                tempList = []
-                for code in deviceKeyMap[event.code]:
-                    tempUsec += 1
-                    tempList.append(InputEvent(event.sec, tempUsec, ecodes.EV_KEY, code, event.value))
-                return tempList
-            event.code = deviceKeyMap[event.code]
-        return event
+        if event.type != ecodes.EV_KEY:
+            # log.debug(f'The event ({event}) was received and returned')
+            yield event
+        else:
+            currentTime = event.sec
+            currentUsec = event.usec
+            for returnEvent in self.deviceKeyMap[device].get(event.code, ()):
+                if type(returnEvent) is float:
+                    time.sleep(returnEvent)
+                    continue
+                returnEvent.sec = currentTime
+                currentUsec += 100
+                returnEvent.usec = currentUsec
+                returnEvent.value = event.value
+                log.debug(f'The event ({event}) was received and has been mapped too: ({returnEvent})')
+                yield returnEvent
+
+        # if event.code in self.profileKeyMap:
+        #     log.debug("Profile key mapping of: %s was detected replacing it for %s" %
+        #               (event.code, self.profileKeyMap[event.code]))
+        #     event.code = self.profileKeyMap[event.code]
+        # elif event.code in self.deviceKeyMap[device]:
+        #     log.debug("Device key mapping of: %s was detected replacing it for %s" %
+        #               (event.code, self.deviceKeyMap[event.code]))
+        #     if type(self.deviceKeyMap[event.code]) is list:
+        #         tempUsec = event.usec
+        #         tempList = []
+        #         for code in self.deviceKeyMap[event.code]:
+        #             tempUsec += 100
+        #             tempList.append(InputEvent(event.sec, tempUsec, ecodes.EV_KEY, code, event.value))
+        #         return tempList
+        #     event.code = self.deviceKeyMap[event.code]
+        # return event
 
     @staticmethod
     def validateKeyPair(inputKey, mapKey):

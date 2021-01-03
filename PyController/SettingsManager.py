@@ -30,7 +30,7 @@ class SettingsManager(object):
             This whole classes job is to pull yaml config files particular the main.yaml which is has a series of
             'shortcut' protected variables to grab the useful information out of the main.yaml config file.
         """
-        super(SettingsManager, self).__init__()
+        super().__init__()
         self.loadMainConfig()
         self.loadProfiles()
 
@@ -40,9 +40,16 @@ class SettingsManager(object):
         :return: None
         """
         log.info("Loading main config file: %s" % mainConfigFile)
-        self.mainConfig = self.loadConfig(mainConfigFile)
+        self.mainConfig = SettingsManager.loadYaml(mainConfigFile)
+        assert isinstance(self.mainConfig, dict)
 
-    def loadConfig(self, filepath, load_yaml=True, device=False, profile=False):
+    def loadProfiles(self):
+        self.profilesConfig = {}
+        for profile in self.profiles:
+            self.profilesConfig.update(SettingsManager.loadYaml(profile, profile=True))
+
+    @staticmethod
+    def configLoader(filepath, device=False, profile=False):
         """
             This method loads a file from disk and returns it. By default the loadYaml parameter is set to True so the
             method will first try to pass the file contents through 'yaml.load' and then return that.
@@ -53,19 +60,16 @@ class SettingsManager(object):
         :return: dict or str
         """
         if device:
-            filepath = self.deviceDir + filepath
+            filepath = deviceDir + filepath
         elif profile:
-            filepath = self.profileDir + filepath
-        with file(filepath) as f:
+            filepath = profileDir + filepath
+        with open(filepath) as f:
             config = f.read()
-        if load_yaml:
-            return yaml.load(config, Loader=yaml.Loader)
         return config
 
-    def loadProfiles(self):
-        self.profilesConfig = {}
-        for profile in self.profiles:
-            self.profilesConfig.update(self.loadConfig(profile, profile=True))
+    @staticmethod
+    def loadYaml(file, *args, **kwargs):
+        return yaml.load(SettingsManager.configLoader(file, *args, **kwargs), Loader=yaml.Loader)
 
     @property
     def devices(self):

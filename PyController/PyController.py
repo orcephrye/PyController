@@ -2,19 +2,20 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.2
+# Version: 0.3
 # Date: 12/01/2016
 # Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux.
 
 
 import logging
 import signal
-from time import sleep
+import asyncio
 from threading import Lock
-from DevicesManager import DeviceManager
-from DeviceWorker import DeviceInputWorker as DIW
-from SettingsManager import SettingsManager as Settings
-from KeyMap import KeyMapper
+from PyController.Devices import DeviceManager
+from PyController.Devices import AsyncDeviceWorker
+from PyController.SettingsManager import SettingsManager as Settings
+from PyController.KeyMap import KeyMapper
+
 
 log = logging.getLogger('PyControlMain')
 
@@ -26,19 +27,26 @@ class GracefulKiller(object):
         PyController class. It simply changes the 'kill_now' from a False to a True allowing for a while loop to exit.
     """
 
-    kill_now = None
     _kill_now = None
     __LOCK__ = None
+    pyc = None
+    loop = None
 
-    def __init__(self):
+    def __init__(self, pyc, loop):
         self.__LOCK__ = Lock()
         self.kill_now = False
-        signal.signal(signal.SIGINT, self.exit_gracefully)
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
+        self.pyc = pyc
+        self.loop = loop
+        self.loop.add_signal_handler(signal.SIGINT, asyncio.ensure_future, self.exit_gracefully())
+        self.loop.add_signal_handler(signal.SIGTERM, asyncio.ensure_future, self.exit_gracefully())
 
-    def exit_gracefully(self, signum, frame):
+    async def exit_gracefully(self):
         log.info("A Kill signal has been received.")
         self.kill_now = True
+        for task in pyc.devWorkers:
+            task.cancel()
+        for task in pyc.devWorkers:
+            await task
 
     @property
     def kill_now(self):
@@ -76,44 +84,51 @@ class PyController(object):
     devManager = None
     devWorkers = None
     keymapper = None
+    asyncLoop = None
 
     def __init__(self):
-        self.killer = GracefulKiller()  # This is passed along to all the DeviceInputWorkers
         self.settings = Settings()  # This is passed to the KeyMapper and to the DeviceManager
         self.configureLogging()  # This uses the Settings manager to set the logging settings
         self.keymapper = KeyMapper(self.settings)   # This is used by the DeviceManager and is passed to each Device
         self.devManager = DeviceManager(self.settings, self.keymapper)  # This setups all the devices found in devices.d
-        self.devWorkers = []    # This is where the DeviceInputWorkers are stored
+        self.devWorkers = []    # This is where the AsyncDeviceWorker coroutines/tasks are stored
 
     def preRunCheck(self):
         pass
 
-    def run(self):
+    async def setup(self, killer):
+        log.info("Setting up PyController!")
+        self.killer = killer
+        self.devManager.grabDevices()
+
+        log.info("Making Device Input Tasks")
+        for device in self.devManager.devices:
+            if device.isValid:
+                self.devWorkers.append(asyncio.create_task(AsyncDeviceWorker(device)))
+
+        return self.devWorkers
+
+    async def run(self, killer):
         """
             This grabs the devices from devManager and then starts all the DeviceInputWorkers. It then sits in a while
             loop waiting for a kill signal. Its job once the signal is received is to clean up by exiting the DIWs,
             releasing grabbed devices and closing any created input devices.
         :return: None
         """
-        log.info("Starting PyController!")
-        self.devManager.grabDevices()
+        await self.setup(killer)
 
-        log.info("Starting Device Input Worker Threads")
-        for device in self.devManager.devices:
-            if device.isValid:
-                self.devWorkers.append(DIW(device, killer=self.killer))
+        log.info("Gathering all device workings and running them")
+        log.debug(f'Workers: {self.devWorkers}')
+        await asyncio.wait(self.devWorkers, return_when=asyncio.FIRST_EXCEPTION)
+        log.info("Finished now exiting")
 
-        while not self.killer.kill_now:
-            sleep(1)
+        await self.shutdown()
 
-        log.info("Killing Device Input Worker Threads")
-        for worker in self.devWorkers:
-            worker.join(timeout=1)
-
+    async def shutdown(self):
+        log.info("Disconnecting Devices")
         self.devManager.ungrabDevices()
         self.devManager.closeDevices()
         log.info("Ending PyController!")
-        return
 
     def configureLogging(self):
         """
@@ -133,4 +148,8 @@ class PyController(object):
 
 
 if __name__ == '__main__':
-    PyController().run()
+    loop = asyncio.get_event_loop()
+    pyc = PyController()
+    killer = GracefulKiller(pyc, loop)
+    loop.run_until_complete(pyc.run(killer))
+    loop.close()
