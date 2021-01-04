@@ -67,23 +67,45 @@ class KeyMapper(object):
 
         return self.deviceKeyMap[device]
 
-    def updateProfileKeyMap(self, profileKeys, profileName):
+    def addProfileKeyMap(self, profileKeys, profileName):
         """
             This updates the 'profileKeyMap' variable with more key mappings.
         :param profileKeys: dictionary
+        :param profileName: str
         :return: None
         """
-        self.profileKeyMap = {}
+
+        if profileName not in self.profileKeyMap:
+            self.profileKeyMap[profileName] = {}
+
         for inputKey, mapKey in profileKeys.items():
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
-                log.warning("This key map pair is invalid - Input Key: %s Replacement Key: %s" % (inputKey, mapKey))
+                log.warning(f'The key map of input: {inputKey} mapped to {mapKey} failed validation.')
                 continue
-            self.profileKeyMap[getattr(ecodes, inputKey)] = getattr(ecodes, mapKey)
-        self.activeProfile = profileName
+            if type(mapKey) is list:
+                self.profileKeyMap[profileName][getattr(ecodes, inputKey)] = tuple([getattr(ecodes, i) for i in mapKey])
+            else:
+                self.profileKeyMap[profileName][getattr(ecodes, inputKey)] = (getattr(ecodes, mapKey), )
 
-    def removeProfile(self, profileName):
+        for inputKey, outputKeyTuple in self.profileKeyMap[profileName].items():
+            self.profileKeyMap[profileName][inputKey] = tuple([InputEvent(time.time(), 0, ecodes.EV_KEY, key, 1)
+                                                               for key in outputKeyTuple])
+
+    def makeProfileActive(self, profileName):
+        """
+            This checks the name provided by the config file against the profileKeys dictionary and if it exists sets
+            the activeProve variable to it.
+        :param profileName: (str)
+        :return:
+        """
+        if profileName in self.profileKeyMap:
+            log.info(f'Setting new active profile: {profileName}')
+            log.debug(f'The new profile settings to be used: {self.profileKeyMap.get(profileName)}')
+            self.activeProfile = profileName
+
+    def deactivateProfile(self, profileName):
         if profileName == self.activeProfile:
-            self.profileKeyMap = {}
+            log.info(f'Deactivating profile: {profileName}')
             self.activeProfile = None
 
     def mapEvent(self, event, device):
@@ -100,7 +122,8 @@ class KeyMapper(object):
         else:
             currentTime = event.sec
             currentUsec = event.usec
-            for returnEvent in self.deviceKeyMap[device].get(event.code, ()):
+            for returnEvent in self.profileKeyMap.get(self.activeProfile, {}).get(event.code, ()) or \
+                               self.deviceKeyMap[device].get(event.code, ()):
                 if type(returnEvent) is float:
                     time.sleep(returnEvent)
                     continue
@@ -108,25 +131,8 @@ class KeyMapper(object):
                 currentUsec += 100
                 returnEvent.usec = currentUsec
                 returnEvent.value = event.value
-                log.debug(f'The event ({event}) was received and has been mapped too: ({returnEvent})')
+                # log.debug(f'The event ({event}) was received and has been mapped too: ({returnEvent})')
                 yield returnEvent
-
-        # if event.code in self.profileKeyMap:
-        #     log.debug("Profile key mapping of: %s was detected replacing it for %s" %
-        #               (event.code, self.profileKeyMap[event.code]))
-        #     event.code = self.profileKeyMap[event.code]
-        # elif event.code in self.deviceKeyMap[device]:
-        #     log.debug("Device key mapping of: %s was detected replacing it for %s" %
-        #               (event.code, self.deviceKeyMap[event.code]))
-        #     if type(self.deviceKeyMap[event.code]) is list:
-        #         tempUsec = event.usec
-        #         tempList = []
-        #         for code in self.deviceKeyMap[event.code]:
-        #             tempUsec += 100
-        #             tempList.append(InputEvent(event.sec, tempUsec, ecodes.EV_KEY, code, event.value))
-        #         return tempList
-        #     event.code = self.deviceKeyMap[event.code]
-        # return event
 
     @staticmethod
     def validateKeyPair(inputKey, mapKey):

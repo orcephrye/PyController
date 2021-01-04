@@ -86,7 +86,7 @@ class SettingsManager(object):
     @property
     def games(self):
         if not self.profilesConfig:
-            return []
+            return set()
         outGames = []
         for game in [profile['executable'] for profile in self.profilesConfig.values() if 'executable' in profile]:
             if type(game) is list:

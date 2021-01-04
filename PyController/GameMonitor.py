@@ -9,61 +9,63 @@
 
 import logging
 import psutil
-import threading
 import time
+import traceback
 
 
 # logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
 log = logging.getLogger('GameMonitor')
 
 
-class GameMonitor(threading.Thread):
+class GameMonitor(object):
 
     games = None
     settings = None
-    killer = None
     activeGames = None
     keymap = None
+    pyc = None
 
-    def __init__(self, settings, killer, keymap):
+    def __init__(self, pyc):
         super(GameMonitor, self).__init__()
-        self.settings = settings
-        self.games = settings.games
-        self.killer = killer
+        self.settings = pyc.settings
+        self.games = pyc.settings.games
         self.activeGames = set()
-        self.keymap = keymap
-        if self.games:
-            self.start()
+        self.keymap = pyc.keymapper
+        for key, value in self.settings.profilesConfig.items():
+            self.keymap.addProfileKeyMap(value.get('keys'), key)
 
-    def updateGamesList(self, autostart=False):
-        self.settings.loadProfiles()
-        self.games = self.settings.games
-        if autostart and self.games and not self.is_alive and not self.killer.kill_now:
-            self.start()
-
-    def run(self):
-        while not self.killer.kill_now:
-            procs = [proc.name().lower() for proc in psutil.process_iter()]
-            for proc in procs:
-                if proc in self.games and proc not in self.activeGames:
-                    self.activeGames.add(proc)
-                    profile = self.findProfile(proc)
-                    for key, value in profile.items():
-                        self.keymap.updateProfileKeyMap(value['keys'], key)
-            for activeGame in self.activeGames:
-                if activeGame.lower() not in procs:
-                    profile = self.findProfile(activeGame.lower())
-                    for key in profile.keys():
-                        self.keymap.removeProfile(key)
-            time.sleep(1)
+    def run(self, kill_now, globalQueue):
+        try:
+            while bool(kill_now.value):
+                procs = [proc.exe().lower() for proc in psutil.process_iter()]
+                for proc in procs:
+                    if [g for g in self.games if g in proc or proc in g] and proc not in self.activeGames:
+                        profile = self.findProfile(proc)
+                        if profile is None:
+                            continue
+                        self.activeGames.add(proc)
+                        globalQueue.put_nowait(('makeProfileActive', profile))
+                for activeGame in [games for games in self.activeGames]:
+                    if activeGame not in procs:
+                        profile = self.findProfile(activeGame)
+                        if profile is None:
+                            continue
+                        self.activeGames.remove(activeGame)
+                        globalQueue.put_nowait(('deactivateProfile', profile))
+                time.sleep(5)
+        except (KeyboardInterrupt, SystemExit):
+            log.info("Game Monitor received a KeyboardInterrupt or SystemExit")
+        except Exception as e:
+            log.error(f'Error in the GameMonitor: {e}')
+            log.debug(f'[DEBUG] for the GameMonitor: {traceback.format_exc()}')
 
     def findProfile(self, game):
-        for profile, values in self.settings.profileConfig.items():
+        for profile, values in self.settings.profilesConfig.items():
             if type(values['executable']) is list:
                 for exe in values['executable']:
-                    if game.lower() == exe.lower():
-                        return {profile: values}
+                    if exe.lower() in game:
+                        return profile
             else:
-                if game.lower() == values['executable'].lower():
-                    return {profile: values}
-        return {}
+                if values['executable'].lower() in game:
+                    return profile
+        return None

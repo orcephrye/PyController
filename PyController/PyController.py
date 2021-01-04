@@ -10,14 +10,25 @@
 import logging
 import signal
 import asyncio
-from threading import Lock
-from PyController.Devices import DeviceManager
-from PyController.Devices import AsyncDeviceWorker
-from PyController.SettingsManager import SettingsManager as Settings
-from PyController.KeyMap import KeyMapper
+import warnings
+import traceback
+from multiprocessing import Process, Value, Queue
+from PyDevices import DeviceManager, AsyncDeviceWorker
+from SettingsManager import SettingsManager as Settings
+from GameMonitor import GameMonitor
+from KeyMap import KeyMapper
 
 
 log = logging.getLogger('PyControlMain')
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+
+kill_now = Value('i', 1)
+globalQueue = Queue()
+
+
+def dummyFunction(*args, **kwargs):
+    log.warning(f'This dummy function was called which should never happen')
 
 
 class GracefulKiller(object):
@@ -27,14 +38,10 @@ class GracefulKiller(object):
         PyController class. It simply changes the 'kill_now' from a False to a True allowing for a while loop to exit.
     """
 
-    _kill_now = None
-    __LOCK__ = None
     pyc = None
     loop = None
 
     def __init__(self, pyc, loop):
-        self.__LOCK__ = Lock()
-        self.kill_now = False
         self.pyc = pyc
         self.loop = loop
         self.loop.add_signal_handler(signal.SIGINT, asyncio.ensure_future, self.exit_gracefully())
@@ -42,35 +49,12 @@ class GracefulKiller(object):
 
     async def exit_gracefully(self):
         log.info("A Kill signal has been received.")
-        self.kill_now = True
+        global kill_now
+        kill_now.value = 0
         for task in pyc.devWorkers:
             task.cancel()
         for task in pyc.devWorkers:
             await task
-
-    @property
-    def kill_now(self):
-        try:
-            with self.__LOCK__:
-                return self._kill_now
-        except RuntimeError:
-            pass
-
-    @kill_now.setter
-    def kill_now(self, value):
-        try:
-            with self.__LOCK__:
-                self._kill_now = value
-        except RuntimeError:
-            pass
-
-    @kill_now.deleter
-    def kill_now(self):
-        try:
-            with self.__LOCK__:
-                self._kill_now = None
-        except RuntimeError:
-            pass
 
 
 class PyController(object):
@@ -92,9 +76,6 @@ class PyController(object):
         self.keymapper = KeyMapper(self.settings)   # This is used by the DeviceManager and is passed to each Device
         self.devManager = DeviceManager(self.settings, self.keymapper)  # This setups all the devices found in devices.d
         self.devWorkers = []    # This is where the AsyncDeviceWorker coroutines/tasks are stored
-
-    def preRunCheck(self):
-        pass
 
     async def setup(self, killer):
         log.info("Setting up PyController!")
@@ -118,6 +99,7 @@ class PyController(object):
         await self.setup(killer)
 
         log.info("Gathering all device workings and running them")
+        self.devWorkers.append(asyncio.create_task(self.gameMonitor()))
         log.debug(f'Workers: {self.devWorkers}')
         await asyncio.wait(self.devWorkers, return_when=asyncio.FIRST_EXCEPTION)
         log.info("Finished now exiting")
@@ -129,6 +111,19 @@ class PyController(object):
         self.devManager.ungrabDevices()
         self.devManager.closeDevices()
         log.info("Ending PyController!")
+
+    async def gameMonitor(self):
+        global globalQueue
+        while bool(kill_now.value):
+            if not globalQueue.empty():
+                try:
+                    value = globalQueue.get_nowait()
+                    log.debug(f'The received value is: {value}')
+                    getattr(self.keymapper, value[0], dummyFunction)(value[1])
+                except Exception as e:
+                    log.error(f'Error in gameMonitor main method: {e}')
+                    log.debug(f'[DEBUG] for gameMonitor main method: {traceback.format_exc()}')
+            await asyncio.sleep(5)
 
     def configureLogging(self):
         """
@@ -148,8 +143,19 @@ class PyController(object):
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    pyc = PyController()
-    killer = GracefulKiller(pyc, loop)
-    loop.run_until_complete(pyc.run(killer))
-    loop.close()
+    try:
+        loop = asyncio.get_event_loop()
+        pyc = PyController()
+        p = None
+        if pyc.settings.profilesConfig:
+            gm = GameMonitor(pyc)
+            p = Process(target=gm.run, args=(kill_now, globalQueue, ))
+            p.start()
+        killer = GracefulKiller(pyc, loop)
+        loop.run_until_complete(pyc.run(killer))
+        loop.close()
+        if p:
+            p.join(timeout=1)
+    except Exception as e:
+        log.error(f"Error in Main: {e}")
+        log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")
