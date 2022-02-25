@@ -12,6 +12,7 @@ import signal
 import asyncio
 import warnings
 import traceback
+import sys
 from multiprocessing import Process, Value, Queue
 from PyDevices import DeviceManager, AsyncDeviceWorker
 from SettingsManager import SettingsManager as Settings
@@ -29,6 +30,7 @@ globalQueue = Queue()
 
 def dummyFunction(*args, **kwargs):
     log.warning(f'This dummy function was called which should never happen')
+    return kwargs.get('_default', None)
 
 
 class GracefulKiller(object):
@@ -44,17 +46,34 @@ class GracefulKiller(object):
     def __init__(self, pyc, loop):
         self.pyc = pyc
         self.loop = loop
-        self.loop.add_signal_handler(signal.SIGINT, asyncio.ensure_future, self.exit_gracefully())
-        self.loop.add_signal_handler(signal.SIGTERM, asyncio.ensure_future, self.exit_gracefully())
+        signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+        for s in signals:
+            loop.add_signal_handler(
+                s, lambda s=s: asyncio.create_task(self.exit_gracefully(s)))
 
-    async def exit_gracefully(self):
-        log.info("A Kill signal has been received.")
-        global kill_now
-        kill_now.value = 0
-        for task in pyc.devWorkers:
-            task.cancel()
-        for task in pyc.devWorkers:
-            await task
+    async def exit_gracefully(self, s):
+        try:
+            logging.info(f"Received exit signal {s.name}...")
+            global kill_now
+            kill_now.value = 0
+            log.info("Changed kill value")
+
+            tasks = [t for t in asyncio.all_tasks() if t is not
+                     asyncio.current_task()]
+
+            log.debug(f"The tasks are: {tasks}")
+
+            log.info(f"Cancelling {len(tasks)} outstanding tasks")
+            [task.cancel() for task in tasks]
+
+            log.info(f"waiting on {len(tasks)} outstanding tasks")
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+            self.loop.stop()
+            log.info("Finished stopping tasks")
+        except Exception as e:
+            log.error(f"Error in Main: {e}")
+            log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")
 
 
 class PyController(object):
@@ -67,6 +86,7 @@ class PyController(object):
     settings = None
     devManager = None
     devWorkers = None
+    gameMonitorTask = None
     keymapper = None
     asyncLoop = None
 
@@ -77,7 +97,7 @@ class PyController(object):
         self.devManager = DeviceManager(self.settings, self.keymapper)  # This setups all the devices found in devices.d
         self.devWorkers = []    # This is where the AsyncDeviceWorker coroutines/tasks are stored
 
-    async def setup(self, killer):
+    def setup(self, loop, killer):
         log.info("Setting up PyController!")
         self.killer = killer
         self.devManager.grabDevices()
@@ -85,32 +105,48 @@ class PyController(object):
         log.info("Making Device Input Tasks")
         for device in self.devManager.devices:
             if device.isValid:
-                self.devWorkers.append(asyncio.create_task(AsyncDeviceWorker(device)))
+                self.devWorkers.append(loop.create_task(AsyncDeviceWorker(device)))
+
+        if self.settings.profilesConfig:
+            self.gameMonitorTask = loop.create_task(self.gameMonitor())
 
         return self.devWorkers
 
-    async def run(self, killer):
+    def run(self, *args, **kwargs):
         """
             This grabs the devices from devManager and then starts all the DeviceInputWorkers. It then sits in a while
             loop waiting for a kill signal. Its job once the signal is received is to clean up by exiting the DIWs,
             releasing grabbed devices and closing any created input devices.
         :return: None
         """
-        await self.setup(killer)
+        log.info("Setting up and running PyController")
+        global killer
+        loop = asyncio.get_event_loop()
 
-        log.info("Gathering all device workings and running them")
-        self.devWorkers.append(asyncio.create_task(self.gameMonitor()))
-        log.debug(f'Workers: {self.devWorkers}')
-        await asyncio.wait(self.devWorkers, return_when=asyncio.FIRST_EXCEPTION)
+        try:
+            killer = GracefulKiller(self, loop)
+            self.setup(loop, killer)
+            loop.run_forever()
+        except KeyboardInterrupt:
+            logging.info("Process interrupted")
+        finally:
+            log.info("Task is now complete closing and shutting down")
+            self.shutdown()
+            loop.close()
+
         log.info("Finished now exiting")
+        return
 
-        await self.shutdown()
-
-    async def shutdown(self):
-        log.info("Disconnecting Devices")
-        self.devManager.ungrabDevices()
-        self.devManager.closeDevices()
-        log.info("Ending PyController!")
+    def shutdown(self):
+        try:
+            log.info("Disconnecting Devices")
+            self.devManager.ungrabDevices()
+            self.devManager.closeDevices()
+            self.devManager.deleteInputs()
+            log.info("Ending PyController!")
+        except Exception as e:
+            log.error(f"Error in Main: {e}")
+            log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")
 
     async def gameMonitor(self):
         global globalQueue
@@ -133,29 +169,39 @@ class PyController(object):
         """
         if self.settings.logging:
             loglevel = getattr(logging, self.settings.loggingLevel, 40) or 40
+            log.setLevel(loglevel)
+            logging.getLogger('Devices').setLevel(loglevel)
+            logging.getLogger('ConfigLoader').setLevel(loglevel)
+            logging.getLogger('KeyMapper').setLevel(loglevel)
+            logging.getLogger('GameMonitor').setLevel(loglevel)
             if self.settings.logFile:
                 logging.basicConfig(filename=self.settings.logFile,
-                                    format='%(module)s %(funcName)s %(lineno)s %(message)s', level=loglevel)
+                                    format='%(module)s %(funcName)s %(lineno)s %(message)s')
             else:
-                logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=loglevel)
+                logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s')
         else:
             logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=100)
 
 
-if __name__ == '__main__':
+def main():
+    p = None
     try:
-        loop = asyncio.get_event_loop()
         pyc = PyController()
-        p = None
         if pyc.settings.profilesConfig:
+            log.info("Making a Game monitor because profiles have been configured.")
             gm = GameMonitor(pyc)
-            p = Process(target=gm.run, args=(kill_now, globalQueue, ))
+            p = Process(target=gm.run, args=(kill_now, globalQueue,))
             p.start()
-        killer = GracefulKiller(pyc, loop)
-        loop.run_until_complete(pyc.run(killer))
-        loop.close()
-        if p:
-            p.join(timeout=1)
+        pyc.run()
     except Exception as e:
         log.error(f"Error in Main: {e}")
         log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")
+    finally:
+        if p:
+            log.info("Closing profile monitor")
+            p.join(timeout=1)
+
+
+if __name__ == '__main__':
+    main()
+    sys.exit(0)
