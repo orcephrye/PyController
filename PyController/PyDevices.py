@@ -206,6 +206,10 @@ class Device(yaml.YAMLObject):
         return len(device.capabilities().get(1, [])) > 160
 
     @staticmethod
+    def hasKeys(device):
+        return len(device.capabilities().get(1, [])) > 0
+
+    @staticmethod
     def isMouse(device):
         return len(device.capabilities().get(2, [])) > 1
 
@@ -213,10 +217,10 @@ class Device(yaml.YAMLObject):
     def getDeviceType(device):
         if Device.isKeyboard(device) and Device.isMouse(device):
             return 'both'
-        elif Device.isKeyboard(device):
-            return 'EV_KEY'
         elif Device.isMouse(device):
             return 'EV_BUTTON'
+        elif Device.isKeyboard(device) or Device.hasKeys(device):
+            return 'EV_KEY'
         return 'both'
 
     @staticmethod
