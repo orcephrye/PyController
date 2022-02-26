@@ -2,7 +2,7 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.3
+# Version: 0.4
 # Date: 12/01/2016
 # Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux.
 
@@ -13,6 +13,7 @@ import asyncio
 import warnings
 import traceback
 import sys
+from ArgumentWrapper import getArguments
 from multiprocessing import Process, Value, Queue
 from PyDevices import DeviceManager, AsyncDeviceWorker
 from SettingsManager import SettingsManager as Settings
@@ -83,6 +84,7 @@ class PyController(object):
     """
 
     killer = None
+    arguments = None
     settings = None
     devManager = None
     devWorkers = None
@@ -90,8 +92,9 @@ class PyController(object):
     keymapper = None
     asyncLoop = None
 
-    def __init__(self):
-        self.settings = Settings()  # This is passed to the KeyMapper and to the DeviceManager
+    def __init__(self, arguments):
+        self.arguments = arguments
+        self.settings = Settings(self.arguments)  # This is passed to the KeyMapper and to the DeviceManager
         self.configureLogging()  # This uses the Settings manager to set the logging settings
         self.keymapper = KeyMapper(self.settings)   # This is used by the DeviceManager and is passed to each Device
         self.devManager = DeviceManager(self.settings, self.keymapper)  # This setups all the devices found in devices.d
@@ -119,6 +122,7 @@ class PyController(object):
             releasing grabbed devices and closing any created input devices.
         :return: None
         """
+
         log.info("Setting up and running PyController")
         global killer
         loop = asyncio.get_event_loop()
@@ -167,26 +171,46 @@ class PyController(object):
             from main.yaml
         :return: None
         """
-        if self.settings.logging:
+
+        loglevel = 100
+
+        if self.arguments.verbosity > 0:
+            loglevel = max(10, 40 - (self.arguments.verbosity * 10))
+        elif self.settings.logging:
             loglevel = getattr(logging, self.settings.loggingLevel, 40) or 40
-            log.setLevel(loglevel)
-            logging.getLogger('Devices').setLevel(loglevel)
-            logging.getLogger('ConfigLoader').setLevel(loglevel)
-            logging.getLogger('KeyMapper').setLevel(loglevel)
-            logging.getLogger('GameMonitor').setLevel(loglevel)
-            if self.settings.logFile:
-                logging.basicConfig(filename=self.settings.logFile,
-                                    format='%(module)s %(funcName)s %(lineno)s %(message)s')
-            else:
-                logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s')
+
+        log.setLevel(loglevel)
+        logging.getLogger('Devices').setLevel(loglevel)
+        logging.getLogger('ConfigLoader').setLevel(loglevel)
+        logging.getLogger('KeyMapper').setLevel(loglevel)
+        logging.getLogger('GameMonitor').setLevel(loglevel)
+
+        if self.settings.logFile:
+            logging.basicConfig(filename=self.settings.logFile,
+                                format='%(module)s %(funcName)s %(lineno)s %(message)s')
         else:
-            logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=100)
+            logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s')
+
+
+def print_list(pyc):
+    print("\nBelow is a list of all accessible devices. There may appear to be duplicates.\n")
+    print(pyc.devManager)
+    print("\nIf the list doesn't show your device but 'lsusb' does then the app doesn't have permission access "
+          "the device. You can verify by running as root. \n[NOTE: It is not recommended to run this application as "
+          "root for daily use only for troubleshooting.] \nUsually adding a group to the desired user will solve this "
+          "issue.\n")
+    pyc.devManager.closeDevices()
+    pyc.devManager.deleteInputs()
+    return
 
 
 def main():
     p = None
+    args = getArguments()
     try:
-        pyc = PyController()
+        pyc = PyController(args)
+        if args.list_devices:
+            return print_list(pyc)
         if pyc.settings.profilesConfig:
             log.info("Making a Game monitor because profiles have been configured.")
             gm = GameMonitor(pyc)
