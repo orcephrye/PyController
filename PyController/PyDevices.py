@@ -258,8 +258,8 @@ class DeviceManager(object):
         self.getDeviceConfigs()
 
     def __str__(self):
-        return '\n'.join([f"{dev.name} - VendorID = {Device._toHex(dev.info.vendor)} : "
-                          f"ProductID = {Device._toHex(dev.info.product)}"
+        return '\n'.join([f"{dev.path} - {dev.name} - {Device._toHex(dev.info.vendor)}:"
+                          f"{Device._toHex(dev.info.product)}"
                           for dev in self.inputDevices])
 
     def getDeviceConfigs(self):
