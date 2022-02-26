@@ -13,9 +13,9 @@ import asyncio
 import warnings
 import traceback
 import sys
-from ArgumentWrapper import getArguments
+from ArgumentWrapper import getArguments, CLASSIC_KEYBOARD
 from multiprocessing import Process, Value, Queue
-from PyDevices import DeviceManager, AsyncDeviceWorker
+from PyDevices import DeviceManager, AsyncDeviceWorker, Device
 from SettingsManager import SettingsManager as Settings
 from GameMonitor import GameMonitor
 from KeyMap import KeyMapper
@@ -73,8 +73,8 @@ class GracefulKiller(object):
             self.loop.stop()
             log.info("Finished stopping tasks")
         except Exception as e:
-            log.error(f"Error in Main: {e}")
-            log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")
+            log.error(f"Error in exit_gracefully: {e}")
+            log.debug(f"[DEBUG] for exit_gracefully: {traceback.format_exc()}")
 
 
 class PyController(object):
@@ -149,8 +149,8 @@ class PyController(object):
             self.devManager.deleteInputs()
             log.info("Ending PyController!")
         except Exception as e:
-            log.error(f"Error in Main: {e}")
-            log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")
+            log.error(f"Error in shutdown: {e}")
+            log.debug(f"[DEBUG] for shutdown: {traceback.format_exc()}")
 
     async def gameMonitor(self):
         global globalQueue
@@ -161,8 +161,8 @@ class PyController(object):
                     log.debug(f'The received value is: {value}')
                     getattr(self.keymapper, value[0], dummyFunction)(value[1])
                 except Exception as e:
-                    log.error(f'Error in gameMonitor main method: {e}')
-                    log.debug(f'[DEBUG] for gameMonitor main method: {traceback.format_exc()}')
+                    log.error(f'Error in gameMonitor PyController method: {e}')
+                    log.debug(f'[DEBUG] for gameMonitor PyController method: {traceback.format_exc()}')
             await asyncio.sleep(5)
 
     def configureLogging(self):
@@ -201,14 +201,83 @@ def print_list(pyc):
           "issue.\n")
     pyc.devManager.closeDevices()
     pyc.devManager.deleteInputs()
-    return
+
+
+def print_classic_keys():
+    print("\nBelow is a print out of most keys found on a classic keyboard. This is to be used as a reference to "
+          "determine what to write in the yaml config file for a device.\n")
+    print('\n'.join(CLASSIC_KEYBOARD))
+    print("\nNOTE: Other keys such as multi media keys also exist: [KEY_VOLUMEDOWN, KEY_VOLUMEUP, KEY_NEXTSONG, "
+          "KEY_PLAYPAUSE, KEY_PREVIOUSSONG]")
+
+
+def _find_device(pyc, deviceid):
+    if ':' not in deviceid:
+        print(f'The device ID information [{deviceid}] is not formatted correctly. Needs to be XXXX:XXXX')
+        return False
+    vendorid = deviceid.split(':')[0]
+    productid = deviceid.split(':')[1]
+    device = Device(vendorid, productid, 'PrintCapabilities', type='EV_KEY')
+    device.findDevice(pyc.devManager.inputDevices)
+    if not device.isValid:
+        print(f'Could not find specified device: {deviceid}')
+        return False
+    return device
+
+
+def print_capabilities(pyc):
+    def _filter(item):
+        return item if type(item) is str else None
+
+    deviceid = pyc.arguments.print_capabilities
+
+    device = _find_device(pyc, deviceid)
+    if device is False:
+        return
+
+    caps = device.evdevice.capabilities(verbose=True)
+    print(f"\nAttempting to print KEY capabilities of device: {device.evdevice}:\n")
+    print("\n".join(filter(_filter, [item[0] for item in caps[("EV_KEY", 1)]])))
+    print("\n")
+    pyc.devManager.closeDevices()
+    pyc.devManager.deleteInputs()
+
+
+def print_key_presses(pyc):
+    deviceid = pyc.arguments.print_key_presses
+
+    try:
+        device = _find_device(pyc, deviceid)
+        if device is False:
+            return
+
+        print(f'\nThis will capture key presses from the specified device: {device.evdevice}:\n'
+              f'NOTE: press CTRL-C to exit...\n')
+
+        for pevent in device.read_input():
+            print(pevent)
+    except KeyboardInterrupt as e:
+        print("\nInterrupt detected gracefully exiting...")
+    except Exception as e:
+        log.error(f"Error in print_key_presses: {e}")
+        log.debug(f"[DEBUG] for print_key_presses: {traceback.format_exc()}")
+    finally:
+        print("\n")
+        pyc.devManager.closeDevices()
+        pyc.devManager.deleteInputs()
 
 
 def main():
     p = None
     args = getArguments()
     try:
+        if args.print_classic_keys:
+            return print_classic_keys()
         pyc = PyController(args)
+        if args.print_capabilities:
+            return print_capabilities(pyc)
+        if args.print_key_presses:
+            return print_key_presses(pyc)
         if args.list_devices:
             return print_list(pyc)
         if pyc.settings.profilesConfig:

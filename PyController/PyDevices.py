@@ -10,7 +10,7 @@ import yaml
 import evdev
 import traceback
 import time
-from evdev import InputDevice, UInput, InputEvent, ecodes as e
+from evdev import InputDevice, UInput, InputEvent, categorize, ecodes as e
 
 
 # logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
@@ -188,6 +188,14 @@ class Device(yaml.YAMLObject):
                                              getattr(e, type, 'EV_KEY'),
                                              getattr(e, key, 'KEY_Q'),
                                              0))
+
+    def read_input(self):
+        """
+            This is used for testing the devices key presses
+        """
+        for event in self.evdevice.read_loop():
+            if event.type == e.EV_KEY:
+                yield categorize(event)
 
     @property
     def isValid(self) -> bool:
