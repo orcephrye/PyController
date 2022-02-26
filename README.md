@@ -3,6 +3,7 @@ PyController
 
 -----
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://choosealicense.com/licenses/gpl-3.0/)
+![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/orcephrye/PyController?include_prereleases)
 
 A Game Pad key mapping utility for Linux. 
 
