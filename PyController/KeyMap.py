@@ -2,8 +2,6 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.2
-# Date: 12/01/2016
 # Description: This package holds the code for mapping keys so that one can.
 
 

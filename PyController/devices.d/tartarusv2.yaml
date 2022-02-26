@@ -1,7 +1,7 @@
 --- !Device
 name: Tartarus
 vendorid: '1532'
-productid: '0201'
+productid: '022b'
 type: 'EV_KEY'
-#keys:
-#  KEY_A: KEY_L
+keys:
+  KEY_LEFTALT: KEY_U

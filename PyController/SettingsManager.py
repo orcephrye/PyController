@@ -2,8 +2,6 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.2
-# Date: 12/01/2016
 # Description: This package loads the configuration files.
 
 
@@ -22,15 +20,17 @@ log = logging.getLogger('ConfigLoader')
 
 class SettingsManager(object):
 
+    arguments = None
     mainConfig = None
     profilesConfig = None
 
-    def __init__(self):
+    def __init__(self, arguments):
         """
             This whole classes job is to pull yaml config files particular the main.yaml which is has a series of
             'shortcut' protected variables to grab the useful information out of the main.yaml config file.
         """
         super().__init__()
+        self.arguments = arguments
         self.loadMainConfig()
         self.loadProfiles()
 
@@ -39,8 +39,9 @@ class SettingsManager(object):
             This logs the main config file. This is necessary for the program to work.
         :return: None
         """
-        log.info("Loading main config file: %s" % mainConfigFile)
-        self.mainConfig = SettingsManager.loadYaml(mainConfigFile)
+        configfile = mainConfigFile if self.arguments.config == mainConfigFile else self.arguments.config
+        log.info("Loading main config file: %s" % configfile)
+        self.mainConfig = SettingsManager.loadYaml(configfile)
         assert isinstance(self.mainConfig, dict)
 
     def loadProfiles(self):

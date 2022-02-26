@@ -6,8 +6,9 @@ main:
               # without having to log to a file.
   loglevel: DEBUG # DEBUG, INFO, WARNING, ERROR, CRITICAL (DEBUG is the most verbose)
 devices:
-  - nostromo.yaml
+#  - nostromo.yaml
 # - tartarus.yaml
+ - tartarusv2.yaml
 # - exampleDevice.yaml
 profiles:
 #  - exampleProfile.yaml

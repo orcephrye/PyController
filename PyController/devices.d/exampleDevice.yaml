@@ -2,6 +2,7 @@
 name: ExampleDevice # This has to be here to and with no spaces.
 vendorid: '1111' # Also required and can be found via the lsusb command
 productid: '2222' # Also required and can be found via the lsusb command
+type: 'EV_KEY' # This should default to EV_KEY as it currently the only supported type. Others include EV_LED and so on.
 keys: # This and all below it is not required. This is where you can remap keys.
   KEY_A: KEY_B # If you do want to remap a key it has to be the lines following the 'keys:' and it has spaced like this example
   KEY_LEFTALT: KEY_SPACE

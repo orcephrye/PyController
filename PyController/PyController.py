@@ -2,7 +2,7 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.3
+# Version: 0.4
 # Date: 12/01/2016
 # Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux.
 
@@ -13,8 +13,9 @@ import asyncio
 import warnings
 import traceback
 import sys
+from ArgumentWrapper import getArguments, CLASSIC_KEYBOARD
 from multiprocessing import Process, Value, Queue
-from PyDevices import DeviceManager, AsyncDeviceWorker
+from PyDevices import DeviceManager, AsyncDeviceWorker, Device
 from SettingsManager import SettingsManager as Settings
 from GameMonitor import GameMonitor
 from KeyMap import KeyMapper
@@ -72,8 +73,8 @@ class GracefulKiller(object):
             self.loop.stop()
             log.info("Finished stopping tasks")
         except Exception as e:
-            log.error(f"Error in Main: {e}")
-            log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")
+            log.error(f"Error in exit_gracefully: {e}")
+            log.debug(f"[DEBUG] for exit_gracefully: {traceback.format_exc()}")
 
 
 class PyController(object):
@@ -83,6 +84,7 @@ class PyController(object):
     """
 
     killer = None
+    arguments = None
     settings = None
     devManager = None
     devWorkers = None
@@ -90,8 +92,9 @@ class PyController(object):
     keymapper = None
     asyncLoop = None
 
-    def __init__(self):
-        self.settings = Settings()  # This is passed to the KeyMapper and to the DeviceManager
+    def __init__(self, arguments):
+        self.arguments = arguments
+        self.settings = Settings(self.arguments)  # This is passed to the KeyMapper and to the DeviceManager
         self.configureLogging()  # This uses the Settings manager to set the logging settings
         self.keymapper = KeyMapper(self.settings)   # This is used by the DeviceManager and is passed to each Device
         self.devManager = DeviceManager(self.settings, self.keymapper)  # This setups all the devices found in devices.d
@@ -119,6 +122,7 @@ class PyController(object):
             releasing grabbed devices and closing any created input devices.
         :return: None
         """
+
         log.info("Setting up and running PyController")
         global killer
         loop = asyncio.get_event_loop()
@@ -145,8 +149,8 @@ class PyController(object):
             self.devManager.deleteInputs()
             log.info("Ending PyController!")
         except Exception as e:
-            log.error(f"Error in Main: {e}")
-            log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")
+            log.error(f"Error in shutdown: {e}")
+            log.debug(f"[DEBUG] for shutdown: {traceback.format_exc()}")
 
     async def gameMonitor(self):
         global globalQueue
@@ -157,8 +161,8 @@ class PyController(object):
                     log.debug(f'The received value is: {value}')
                     getattr(self.keymapper, value[0], dummyFunction)(value[1])
                 except Exception as e:
-                    log.error(f'Error in gameMonitor main method: {e}')
-                    log.debug(f'[DEBUG] for gameMonitor main method: {traceback.format_exc()}')
+                    log.error(f'Error in gameMonitor PyController method: {e}')
+                    log.debug(f'[DEBUG] for gameMonitor PyController method: {traceback.format_exc()}')
             await asyncio.sleep(5)
 
     def configureLogging(self):
@@ -167,26 +171,115 @@ class PyController(object):
             from main.yaml
         :return: None
         """
-        if self.settings.logging:
+
+        loglevel = 100
+
+        if self.arguments.verbosity > 0:
+            loglevel = max(10, 40 - (self.arguments.verbosity * 10))
+        elif self.settings.logging:
             loglevel = getattr(logging, self.settings.loggingLevel, 40) or 40
-            log.setLevel(loglevel)
-            logging.getLogger('Devices').setLevel(loglevel)
-            logging.getLogger('ConfigLoader').setLevel(loglevel)
-            logging.getLogger('KeyMapper').setLevel(loglevel)
-            logging.getLogger('GameMonitor').setLevel(loglevel)
-            if self.settings.logFile:
-                logging.basicConfig(filename=self.settings.logFile,
-                                    format='%(module)s %(funcName)s %(lineno)s %(message)s')
-            else:
-                logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s')
+
+        log.setLevel(loglevel)
+        logging.getLogger('Devices').setLevel(loglevel)
+        logging.getLogger('ConfigLoader').setLevel(loglevel)
+        logging.getLogger('KeyMapper').setLevel(loglevel)
+        logging.getLogger('GameMonitor').setLevel(loglevel)
+
+        if self.settings.logFile:
+            logging.basicConfig(filename=self.settings.logFile,
+                                format='%(module)s %(funcName)s %(lineno)s %(message)s')
         else:
-            logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=100)
+            logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s')
+
+
+def print_list(pyc):
+    print("\nBelow is a list of all accessible devices. There may appear to be duplicates.\n")
+    print(pyc.devManager)
+    print("\nIf the list doesn't show your device but 'lsusb' does then the app doesn't have permission access "
+          "the device. You can verify by running as root. \n[NOTE: It is not recommended to run this application as "
+          "root for daily use only for troubleshooting.] \nUsually adding a group to the desired user will solve this "
+          "issue.\n")
+    pyc.devManager.closeDevices()
+    pyc.devManager.deleteInputs()
+
+
+def print_classic_keys():
+    print("\nBelow is a print out of most keys found on a classic keyboard. This is to be used as a reference to "
+          "determine what to write in the yaml config file for a device.\n")
+    print('\n'.join(CLASSIC_KEYBOARD))
+    print("\nNOTE: Other keys such as multi media keys also exist: [KEY_VOLUMEDOWN, KEY_VOLUMEUP, KEY_NEXTSONG, "
+          "KEY_PLAYPAUSE, KEY_PREVIOUSSONG]")
+
+
+def _find_device(pyc, deviceid):
+    if ':' not in deviceid:
+        print(f'The device ID information [{deviceid}] is not formatted correctly. Needs to be XXXX:XXXX')
+        return False
+    vendorid = deviceid.split(':')[0]
+    productid = deviceid.split(':')[1]
+    device = Device(vendorid, productid, 'PrintCapabilities', type='EV_KEY')
+    device.findDevice(pyc.devManager.inputDevices)
+    if not device.isValid:
+        print(f'Could not find specified device: {deviceid}')
+        return False
+    return device
+
+
+def print_capabilities(pyc):
+    def _filter(item):
+        return item if type(item) is str else None
+
+    deviceid = pyc.arguments.print_capabilities
+
+    device = _find_device(pyc, deviceid)
+    if device is False:
+        return
+
+    caps = device.evdevice.capabilities(verbose=True)
+    print(f"\nAttempting to print KEY capabilities of device: {device.evdevice}:\n")
+    print("\n".join(filter(_filter, [item[0] for item in caps[("EV_KEY", 1)]])))
+    print("\n")
+    pyc.devManager.closeDevices()
+    pyc.devManager.deleteInputs()
+
+
+def print_key_presses(pyc):
+    deviceid = pyc.arguments.print_key_presses
+
+    try:
+        device = _find_device(pyc, deviceid)
+        if device is False:
+            return
+
+        print(f'\nThis will capture key presses from the specified device: {device.evdevice}:\n'
+              f'NOTE: press CTRL-C to exit...\n')
+
+        for pevent in device.read_input():
+            print(pevent)
+    except KeyboardInterrupt as e:
+        print("\nInterrupt detected gracefully exiting...")
+    except Exception as e:
+        log.error(f"Error in print_key_presses: {e}")
+        log.debug(f"[DEBUG] for print_key_presses: {traceback.format_exc()}")
+    finally:
+        print("\n")
+        pyc.devManager.closeDevices()
+        pyc.devManager.deleteInputs()
 
 
 def main():
     p = None
+    args = getArguments()
     try:
-        pyc = PyController()
+        if args.print_classic_keys:
+            return print_classic_keys()
+        pyc = PyController(args)
+        if args.print_capabilities:
+            return print_capabilities(pyc)
+        if args.print_key_presses:
+            return print_key_presses(pyc)
+        if args.list_devices:
+            return print_list(pyc)
         if pyc.settings.profilesConfig:
             log.info("Making a Game monitor because profiles have been configured.")
             gm = GameMonitor(pyc)

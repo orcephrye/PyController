@@ -2,8 +2,6 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.2
-# Date: 12/01/2016
 # Description: This package holds the Device class which keeps information about a particular device.
 
 
@@ -12,7 +10,7 @@ import yaml
 import evdev
 import traceback
 import time
-from evdev import InputDevice, UInput, InputEvent, ecodes as e
+from evdev import InputDevice, UInput, InputEvent, categorize, ecodes as e
 
 
 # logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
@@ -191,6 +189,14 @@ class Device(yaml.YAMLObject):
                                              getattr(e, key, 'KEY_Q'),
                                              0))
 
+    def read_input(self):
+        """
+            This is used for testing the devices key presses
+        """
+        for event in self.evdevice.read_loop():
+            if event.type == e.EV_KEY:
+                yield categorize(event)
+
     @property
     def isValid(self) -> bool:
         return self.evdevice is not None
@@ -250,6 +256,11 @@ class DeviceManager(object):
         self.keymapper = keymapper
         self.inputDevices = [InputDevice(fn) for fn in evdev.list_devices()]
         self.getDeviceConfigs()
+
+    def __str__(self):
+        return '\n'.join([f"{dev.path} - {dev.name} - {Device._toHex(dev.info.vendor)}:"
+                          f"{Device._toHex(dev.info.product)}"
+                          for dev in self.inputDevices])
 
     def getDeviceConfigs(self):
         """

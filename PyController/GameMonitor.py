@@ -2,9 +2,8 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.2
-# Date: 12/01/2016
-# Description:
+# Description: Monitors processes on the local machine for games noted in configs found under profiles.d/*.yaml.
+#   Once a game is detected it loads the keymap profile and will unload the keymap once the game is no longer running.
 
 
 import logging
