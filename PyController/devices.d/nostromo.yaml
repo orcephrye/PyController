@@ -6,5 +6,4 @@ type: 'EV_KEY'
 keys:
   KEY_LEFTALT: KEY_U
   KEY_F: KEY_T
-  KEY_W: KEY_U
-# KEY_A: [KEY_L, KEY_P]
+

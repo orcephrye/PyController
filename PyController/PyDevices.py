@@ -11,7 +11,8 @@ import logging
 import yaml
 import evdev
 import traceback
-from evdev import InputDevice, UInput
+import time
+from evdev import InputDevice, UInput, InputEvent, ecodes as e
 
 
 # logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
@@ -146,8 +147,6 @@ class Device(yaml.YAMLObject):
         :return:
         """
         log.info("Grabbing input devices associated with: %s" % self.name)
-        # for dev in self.evdevice:
-        #     dev.grab()
         if self.evdevice:
             self.evdevice.grab()
 
@@ -158,8 +157,6 @@ class Device(yaml.YAMLObject):
         :return:
         """
         log.info("Releasing input devices associated with: %s" % self.name)
-        # for dev in self.evdevice:
-        #     dev.ungrab()
         if self.evdevice:
             self.evdevice.ungrab()
 
@@ -171,6 +168,7 @@ class Device(yaml.YAMLObject):
         """
         if self.outDevice:
             log.info("Closing output devices associated with: %s" % self.name)
+            self.outDevice.syn()
             self.outDevice.close()
 
     def generateOuputDevice(self):
@@ -180,6 +178,18 @@ class Device(yaml.YAMLObject):
         :return:
         """
         self.outDevice = UInput.from_device(self.evdevice, name=self.name + '_output')
+
+    def inject_input(self, type='EV_KEY', key='KEY_Q'):
+        self.evdevice.write_event(InputEvent(time.time(),
+                                             0,
+                                             getattr(e, type, 'EV_KEY'),
+                                             getattr(e, key, 'KEY_Q'),
+                                             1))
+        self.evdevice.write_event(InputEvent(time.time(),
+                                             1,
+                                             getattr(e, type, 'EV_KEY'),
+                                             getattr(e, key, 'KEY_Q'),
+                                             0))
 
     @property
     def isValid(self) -> bool:
@@ -274,3 +284,14 @@ class DeviceManager(object):
         log.info("Closing all evdev UInput devices")
         for device in self.devices:
             device.close()
+        while len(self.devices) > 0:
+            item = self.devices.pop()
+            del item
+
+    def deleteInputs(self):
+        log.info("Deleting all Input Devices")
+        for item in self.inputDevices:
+            item.close()
+        while len(self.inputDevices) > 0:
+            item = self.inputDevices.pop()
+            del item
