@@ -61,8 +61,8 @@ def getArguments():
                            type=str,
                            default='',
                            dest='print_capabilities',
-                           help="Attempts to provide the specified device as vendorID:productID which can be found "
-                                "using the '--list-devices' flag")
+                           help="Attempts to provide the specified device's available keys. DeviceID format is "
+                                "vendorID:productID which can be found using the '--list-devices' flag")
 
     my_parser.add_argument('--print-key-presses',
                            action='store',
