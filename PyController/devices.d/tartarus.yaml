@@ -2,5 +2,6 @@
 name: Tartarus
 vendorid: '1532'
 productid: '0201'
+type: 'EV_KEY'
 #keys:
 #  KEY_A: KEY_L
