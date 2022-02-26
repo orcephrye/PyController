@@ -1,0 +1,7 @@
+--- !Device
+name: Tartarus
+vendorid: '1532'
+productid: '022b'
+type: 'EV_KEY'
+keys:
+  KEY_LEFTALT: KEY_U
