@@ -39,6 +39,7 @@ class Device(yaml.YAMLObject):
     vendorid = None
     productid = None
     name = None
+    fullname = None
     keys = None
     type = None
     keymapper = None
@@ -47,7 +48,7 @@ class Device(yaml.YAMLObject):
     evdevice = None
     outDevice = None
 
-    def __init__(self, vendorid, productid, name, type=None, keys=None):
+    def __init__(self, vendorid, productid, name, type=None, keys=None, fullname=None):
         """
             This is not used by yaml when creating the Device object. Do not edit this to troubleshoot unless you
             intend to 'manually' create a Device class.
@@ -59,6 +60,7 @@ class Device(yaml.YAMLObject):
         self.vendorid = str(vendorid)
         self.productid = str(productid)
         self.name = name
+        self.fullname = fullname
         self.type = type
         self.evdevice = None
         if keys is None:
@@ -124,6 +126,8 @@ class Device(yaml.YAMLObject):
             if self.vendorid in Device._toHex(dev.info.vendor) and self.productid in Device._toHex(dev.info.product):
                 log.info(f'Found device {dev}.')
                 if self.type == self.getDeviceType(dev):
+                    if self.fullname is not None and self.fullname != dev.name:
+                        continue
                     if self.evdevice is not None:
                         raise Exception("This device was found more then once!")
                     self.evdevice = dev

@@ -1,0 +1,8 @@
+--- !Device
+name: G610
+fullname: "Logitech Gaming Keyboard G610 Keyboard"
+vendorid: '046d'
+productid: 'c338'
+type: 'EV_KEY'
+#keys:
+#  BTN_B: KEY_B

@@ -8,7 +8,8 @@ main:
 devices:
 #  - nostromo.yaml
 # - tartarus.yaml
- - tartarusv2.yaml
+# - tartarusv2.yaml
 # - exampleDevice.yaml
+  - LogitechG610.yaml
 profiles:
 #  - exampleProfile.yaml
