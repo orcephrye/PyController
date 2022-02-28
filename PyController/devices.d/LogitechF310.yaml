@@ -1,0 +1,7 @@
+--- !Device
+name: F310
+vendorid: '046d'
+productid: 'c21d'
+type: 'EV_KEY'
+#keys:
+#  BTN_B: KEY_B

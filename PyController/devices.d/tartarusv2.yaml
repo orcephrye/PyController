@@ -1,5 +1,5 @@
 --- !Device
-name: Tartarus
+name: Tartarus_V2
 vendorid: '1532'
 productid: '022b'
 type: 'EV_KEY'

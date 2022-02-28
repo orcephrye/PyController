@@ -2,7 +2,7 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.4
+# Version: 0.5
 # Date: 12/01/2016
 # Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux.
 
@@ -226,9 +226,6 @@ def _find_device(pyc, deviceid):
 
 
 def print_capabilities(pyc):
-    def _filter(item):
-        return item if type(item) is str else None
-
     deviceid = pyc.arguments.print_capabilities
 
     device = _find_device(pyc, deviceid)
@@ -237,7 +234,7 @@ def print_capabilities(pyc):
 
     caps = device.evdevice.capabilities(verbose=True)
     print(f"\nAttempting to print KEY capabilities of device: {device.evdevice}:\n")
-    print("\n".join(filter(_filter, [item[0] for item in caps[("EV_KEY", 1)]])))
+    print("\n".join([item[0] if type(item[0]) is str else " / ".join(item[0]) for item in caps[("EV_KEY", 1)]]))
     print("\n")
     pyc.devManager.closeDevices()
     pyc.devManager.deleteInputs()

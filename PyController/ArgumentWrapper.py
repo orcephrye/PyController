@@ -31,7 +31,7 @@ def getArguments():
                                         description='This is a game pad key mapping tool.',
                                         epilog='Game on!')
 
-    my_parser.version = 'Alpha 4'
+    my_parser.version = 'Pre-Release Alpha 5'
     my_parser.add_argument('-v', action='count', dest='verbosity', default=0,
                            help='Overrides the main.yaml loglevel. -v = WARNING, -vv = INFO, -vvv = DEBUG')
     my_parser.add_argument('--version', action='version')
@@ -43,18 +43,18 @@ def getArguments():
                            default='main.yaml',
                            help="Overrides the default configuration file 'main.yaml'.")
 
-    my_parser.add_argument('--list-devices',
-                           action='store_true',
-                           default=False,
-                           dest='list_devices',
-                           help='Tells PyController to list accessible devices under /dev/input/')
-
     my_parser.add_argument('--print-classic-keys',
                            action='store_true',
                            default=False,
                            dest='print_classic_keys',
                            help='Prints a list of classic keys found on a standard QWERTY keyboard. As well possible'
                                 'other key types.')
+
+    my_parser.add_argument('--list-devices',
+                           action='store_true',
+                           default=False,
+                           dest='list_devices',
+                           help='Tells PyController to list accessible devices under /dev/input/')
 
     my_parser.add_argument('--print-capabilities',
                            action='store',

@@ -1,0 +1,7 @@
+--- !Device
+name: XboxOnePad
+vendorid: '045e'
+productid: '02dd'
+type: 'EV_KEY'
+#keys:
+#  BTN_THUMBL: KEY_BACKSPACE

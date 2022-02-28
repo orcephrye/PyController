@@ -58,7 +58,7 @@ crw-rw---- 1 root input 13,  64 Feb 26 12:47 event0
 ```
 
 Most distros will automatically create the device with root:input permissions. You can add the user to the 'input' 
-group like so: (you will need to be root to do this)
+group like so: (you will need to be root to do this) You may also need to reboot after making this change.
 
 ```shell
 sudo usermod -G input <username>
@@ -72,11 +72,15 @@ You can find examples of config files in the 'device.d' folder.
 ```yaml
 --- !Device # This has to be here it tells yaml to make the below information into a PyController Device object.
 name: ExampleDevice # This has to be here to and with no spaces.
+fullname: "Example Full Name of Device" # This is an optional key and used if there are multiple entries for the device
+            # and there is a need to specify which device to capture. The full name can be seen using the flag
+            # '--list-devices'.
 vendorid: '1111' # Also required and can be found via the lsusb command
 productid: '2222' # Also required and can be found via the lsusb command
 type: 'EV_KEY' # This should default to EV_KEY as it currently the only supported type. Others include EV_LED and so on.
 keys: # This and all below it is not required. This is where you can remap keys.
-  KEY_A: KEY_B # If you do want to remap a key it has to be the lines following the 'keys:' and it has spaced like this example
+  KEY_A: KEY_B # If you do want to remap a key it has to be the lines following the 'keys:' and it has spaced like this
+    # example
   KEY_LEFTALT: KEY_SPACE
 ```
 
