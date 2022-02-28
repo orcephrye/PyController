@@ -31,7 +31,7 @@ def getArguments():
                                         description='This is a game pad key mapping tool.',
                                         epilog='Game on!')
 
-    my_parser.version = 'Alpha 4'
+    my_parser.version = 'Pre-Release Alpha 5'
     my_parser.add_argument('-v', action='count', dest='verbosity', default=0,
                            help='Overrides the main.yaml loglevel. -v = WARNING, -vv = INFO, -vvv = DEBUG')
     my_parser.add_argument('--version', action='version')
