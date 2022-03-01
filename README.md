@@ -43,7 +43,7 @@ and be followed by the name of the device. They are separated by a colon
 IE: ':'.
 
 Example:
-```sh
+```shell
 lsusb | grep Razer
 ~> Bus 001 Device 006: ID 1532:0111 Razer USA, Ltd
 ```
@@ -51,7 +51,7 @@ lsusb | grep Razer
 If you do not see your listed device using the '--list-devices' flag for PyController but do see it under 'lsusb' then
 it is possible there is a permissions issue. Checks perms like so:
 
-```sh
+```shell
 ls -l /dev/input
 crw-rw---- 1 root input 13,  64 Feb 26 12:47 event0
 
@@ -67,7 +67,19 @@ sudo usermod -G input <username>
 ### Editing configuration
 
 ----
-You can find examples of config files in the 'device.d' folder. 
+Upon running PyController for the first time this application should generate a PyController config file. This should be
+located in "~/.config/PyController/". Run '--show-config-path' to verify:
+
+```shell
+python3 PyController.py --show-config-path
+
+/home/rye/.config/PyController/main.yaml
+```
+
+Under the 'PyController/' config directory there will be a 'main.yaml' and two directories 'devices.d' and 'profiles.d'.
+
+Edit the main.yaml to enable and disable logging. As well as to specify which device and profile config files should be
+active. Example devices.yaml below:
 
 ```yaml
 --- !Device # This has to be here it tells yaml to make the below information into a PyController Device object.
@@ -84,8 +96,6 @@ keys: # This and all below it is not required. This is where you can remap keys.
   KEY_LEFTALT: KEY_SPACE
 ```
 
-You will need to specify which configs to use in the main.yaml config file. 
-
 Too determine what KEYS to use you can use the following flags:
 
 ```sh 
@@ -97,6 +107,5 @@ python3 PyController.py --print-capabilities XXXX:XXXX
 # You can try different keys to see what there symbol is.
 python3 PyController.py --print-key-presses XXXX:XXXX
 ```
-
 
 More information will follow.

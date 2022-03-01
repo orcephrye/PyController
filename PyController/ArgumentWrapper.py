@@ -31,7 +31,7 @@ def getArguments():
                                         description='This is a game pad key mapping tool.',
                                         epilog='Game on!')
 
-    my_parser.version = 'Pre-Release Alpha 5'
+    my_parser.version = 'Pre-Release Alpha 6'
     my_parser.add_argument('-v', action='count', dest='verbosity', default=0,
                            help='Overrides the main.yaml loglevel. -v = WARNING, -vv = INFO, -vvv = DEBUG')
     my_parser.add_argument('--version', action='version')
@@ -42,6 +42,12 @@ def getArguments():
                            dest='config',
                            default='main.yaml',
                            help="Overrides the default configuration file 'main.yaml'.")
+
+    my_parser.add_argument('--show-config-path',
+                           action='store_true',
+                           dest='showconfigpath',
+                           default=False,
+                           help="Shows the location of PyControllers main.yaml config file.")
 
     my_parser.add_argument('--print-classic-keys',
                            action='store_true',
