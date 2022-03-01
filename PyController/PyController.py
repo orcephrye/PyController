@@ -2,7 +2,7 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.5
+# Version: 0.6
 # Date: 12/01/2016
 # Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux.
 
@@ -185,11 +185,7 @@ class PyController(object):
         logging.getLogger('KeyMapper').setLevel(loglevel)
         logging.getLogger('GameMonitor').setLevel(loglevel)
 
-        if self.settings.logFile:
-            logging.basicConfig(filename=self.settings.logFile,
-                                format='%(module)s %(funcName)s %(lineno)s %(message)s')
-        else:
-            logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s')
+        logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s')
 
 
 def print_list(pyc):
@@ -270,6 +266,9 @@ def main():
     try:
         if args.print_classic_keys:
             return print_classic_keys()
+        if args.showconfigpath:
+            print(Settings(args).showConfigPath())
+            return
         pyc = PyController(args)
         if args.print_capabilities:
             return print_capabilities(pyc)

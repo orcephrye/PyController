@@ -5,13 +5,26 @@
 # Description: This package loads the configuration files.
 
 
+import os
+import sys
 import logging
 import yaml
+from gi.repository import GLib
 
 
-mainConfigFile = "main.yaml"
+defaultMainConfigFile = "main.yaml"
 deviceDir = "devices.d/"
 profileDir = "profiles.d/"
+mainConfigExample = """main:
+  deviceDir: 'devices.d' # Currently, this cannot be changed.
+  profileDir: 'profiles.d' # Currently, this cannot be changed.
+  logging: False
+  loglevel: "CRITICAL" # DEBUG, INFO, WARNING, ERROR, CRITICAL (DEBUG is the most verbose)
+devices:
+# - exampleDevice.yaml
+profiles:
+#  - exampleProfile.yaml
+"""
 
 
 # logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
@@ -21,6 +34,8 @@ log = logging.getLogger('ConfigLoader')
 class SettingsManager(object):
 
     arguments = None
+    configDir = None
+    mainConfigFile = None
     mainConfig = None
     profilesConfig = None
 
@@ -30,16 +45,44 @@ class SettingsManager(object):
             'shortcut' protected variables to grab the useful information out of the main.yaml config file.
         """
         super().__init__()
+        self.configDir = os.path.join(GLib.get_user_config_dir(), 'PyController/')
+        self.mainConfigFile = os.path.join(self.configDir + defaultMainConfigFile)
+        if not os.path.exists(self.configDir) or not os.path.exists(self.mainConfigFile):
+            self.setupConfigs()
         self.arguments = arguments
         self.loadMainConfig()
         self.loadProfiles()
+
+    def setupConfigs(self):
+        if not os.path.exists(self.configDir):
+            os.makedirs(self.configDir)
+        if not os.path.exists(self.mainConfigFile):
+            with open(self.mainConfigFile, 'w') as confFile:
+                confFile.write(mainConfigExample)
+        if not os.path.exists(os.path.join(self.configDir, deviceDir)):
+            os.makedirs(os.path.join(self.configDir, deviceDir))
+        if not os.path.exists(os.path.join(self.configDir, profileDir)):
+            os.makedirs(os.path.join(self.configDir, profileDir))
+        if not os.path.exists(os.path.join(self.configDir, deviceDir, 'exampleDevice.yaml')):
+            if os.path.exists(os.path.join(os.path.realpath(sys.path[0]), deviceDir, 'exampleDevice.yaml')):
+                os.system(f"cp "
+                          f"{os.path.join(os.path.realpath(sys.path[0]), deviceDir, 'exampleDevice.yaml')} "
+                          f"{os.path.join(self.configDir, deviceDir, 'exampleDevice.yaml')}")
+        if not os.path.exists(os.path.join(self.configDir, profileDir, 'exampleProfile.yaml')):
+            if os.path.exists(os.path.join(os.path.realpath(sys.path[0]), profileDir, 'exampleProfile.yaml')):
+                os.system(f"cp "
+                          f"{os.path.join(os.path.realpath(sys.path[0]), profileDir, 'exampleProfile.yaml')} "
+                          f"{os.path.join(self.configDir, profileDir, 'exampleProfile.yaml')}")
+
+    def showConfigPath(self):
+        return f"\n{self.mainConfigFile if self.arguments.config == defaultMainConfigFile else self.arguments.config}\n"
 
     def loadMainConfig(self):
         """
             This logs the main config file. This is necessary for the program to work.
         :return: None
         """
-        configfile = mainConfigFile if self.arguments.config == mainConfigFile else self.arguments.config
+        configfile = self.mainConfigFile if self.arguments.config == defaultMainConfigFile else self.arguments.config
         log.info("Loading main config file: %s" % configfile)
         self.mainConfig = SettingsManager.loadYaml(configfile)
         assert isinstance(self.mainConfig, dict)
@@ -55,7 +98,6 @@ class SettingsManager(object):
             This method loads a file from disk and returns it. By default the loadYaml parameter is set to True so the
             method will first try to pass the file contents through 'yaml.load' and then return that.
         :param filepath: str: a filename
-        :param load_yaml: bool: Default True. Tells the method whether to pass the file contents through 'yaml.load'.
         :param device: bool: Default False: Tells the method to pre-append the deviceDir to the filename.
         :param profile: bool: Default False: Tells the method to pre-append the profileDir to the filename.
         :return: dict or str
