@@ -10,6 +10,7 @@ import yaml
 import evdev
 import traceback
 import time
+from ArgumentWrapper import CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
 from evdev import InputDevice, UInput, InputEvent, categorize, ecodes as e
 
 
@@ -17,12 +18,15 @@ from evdev import InputDevice, UInput, InputEvent, categorize, ecodes as e
 log = logging.getLogger('Devices')
 
 
-async def AsyncDeviceWorker(device):
+async def async_device_worker(device):
+    async_read_loop = device.evdevice.async_read_loop
+    mapEvent = device.keymapper.map_event
+    write_event = device.outDevice.write_event
+    syn = device.outDevice.syn
     try:
-        async for ev in device.evdevice.async_read_loop():
-            for e in device.keymapper.mapEvent(ev, device):
-                device.outDevice.write_event(e)
-            device.outDevice.syn()
+        async for ev in async_read_loop():
+            write_event(mapEvent(ev, device))
+            syn()
     except Exception as e:
         log.error(f'An Exception occurred on Device: {device.name}\n{e}\n')
         log.debug(f'traceback for exception: {e}\n{traceback.format_exc()}')
@@ -68,6 +72,9 @@ class Device(yaml.YAMLObject):
         else:
             self.keys = keys
 
+    def __str__(self):
+        return f"{getattr(self.evdevice, 'name', '')} - {getattr(self.evdevice, 'path', '')}"
+
     def __hash__(self):
         return hash(self.name)
 
@@ -91,7 +98,8 @@ class Device(yaml.YAMLObject):
         :return: None
         """
         self.keymapper = keymapper
-        self.deviceKeyMap = self.keymapper.addDeviceKeyMapping(self, self.keys)
+        # self.deviceKeyMap = self.keymapper.addDeviceKeyMapping(self, self.keys)
+        self.deviceKeyMap = self.keymapper.add_device_keymap(self, self.keys)
 
     def checkDeviceVariables(self):
         """
@@ -179,7 +187,15 @@ class Device(yaml.YAMLObject):
             with this device.
         :return:
         """
-        self.outDevice = UInput.from_device(self.evdevice, name=self.name + '_output')
+        caps = self.evdevice.capabilities()
+        newCaps = {e.EV_KEY: caps.get(e.EV_KEY, [])}
+        # Gets the keys for a classic keyboard and combines them with existing keys of the device.
+        newCaps[1] = list(set(newCaps.get(1)).union(set([getattr(e, key)
+                                                         for key in CLASSIC_KEYBOARD + CONTROLLER_BUTTONS
+                                                         if hasattr(e, key)])))
+
+        # self.outDevice = UInput.from_device(self.evdevice, name=self.name + '_output')
+        self.outDevice = UInput(newCaps, name=self.name+'_output')
 
     def inject_input(self, type='EV_KEY', key='KEY_Q'):
         self.evdevice.write_event(InputEvent(time.time(),

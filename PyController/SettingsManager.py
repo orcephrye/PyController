@@ -84,16 +84,15 @@ class SettingsManager(object):
         """
         configfile = self.mainConfigFile if self.arguments.config == defaultMainConfigFile else self.arguments.config
         log.info("Loading main config file: %s" % configfile)
-        self.mainConfig = SettingsManager.loadYaml(configfile)
+        self.mainConfig = self.loadYaml(configfile)
         assert isinstance(self.mainConfig, dict)
 
     def loadProfiles(self):
         self.profilesConfig = {}
         for profile in self.profiles:
-            self.profilesConfig.update(SettingsManager.loadYaml(profile, profile=True))
+            self.profilesConfig.update(self.loadYaml(profile, profile=True))
 
-    @staticmethod
-    def configLoader(filepath, device=False, profile=False):
+    def configLoader(self, filepath, device=False, profile=False):
         """
             This method loads a file from disk and returns it. By default the loadYaml parameter is set to True so the
             method will first try to pass the file contents through 'yaml.load' and then return that.
@@ -102,17 +101,19 @@ class SettingsManager(object):
         :param profile: bool: Default False: Tells the method to pre-append the profileDir to the filename.
         :return: dict or str
         """
-        if device:
-            filepath = deviceDir + filepath
-        elif profile:
-            filepath = profileDir + filepath
+        if not os.path.isabs(filepath):
+            if device:
+                filepath = os.path.join(self.configDir, self.deviceDir, filepath)
+            elif profile:
+                filepath = os.path.join(self.configDir, self.profileDir, filepath)
+            else:
+                filepath = os.path.join(self.configDir, filepath)
         with open(filepath) as f:
             config = f.read()
         return config
 
-    @staticmethod
-    def loadYaml(file, *args, **kwargs):
-        return yaml.load(SettingsManager.configLoader(file, *args, **kwargs), Loader=yaml.Loader)
+    def loadYaml(self, file, *args, **kwargs):
+        return yaml.load(self.configLoader(file, *args, **kwargs), Loader=yaml.Loader)
 
     @property
     def devices(self):
@@ -165,10 +166,3 @@ class SettingsManager(object):
             return self.mainConfig['main']['loglevel']
         except Exception:
             return 'ERROR'
-
-    @property
-    def logFile(self):
-        try:
-            return self.mainConfig['main']['logFile']
-        except Exception:
-            return ''
