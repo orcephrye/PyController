@@ -60,7 +60,7 @@ class KeyMapper(object):
 
         return self.deviceKeyMap[device]
 
-    def add_profile_keymap(self, profileKeys, profileName):
+    def add_profile_keymap(self, profileKeys, profileName, deviceName=None):
         """
             This updates the 'profileKeyMap' variable with more key mappings.
         :param profileKeys: dictionary
@@ -70,6 +70,9 @@ class KeyMapper(object):
 
         if profileName not in self.profileKeyMap:
             self.profileKeyMap[profileName] = {}
+
+        if deviceName is not None and deviceName not in self.profileKeyMap[profileName]:
+            self.profileKeyMap[profileName][deviceName] = {}
 
         for inputKey, mapKey in profileKeys.items():
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
@@ -109,8 +112,9 @@ class KeyMapper(object):
         if event.type != ecodes.EV_KEY:
             return event
 
-        rEvent = self.profileKeyMap.get(self.activeProfile, {}).get(event.code,
-                                                                    self.deviceKeyMap[device].get(event.code, None))
+        rEvent = self.get_active_profile_for_device(device, event.code) or \
+                 self.deviceKeyMap[device].get(event.code, None)
+
         if rEvent is None:
             return event
 
@@ -118,6 +122,10 @@ class KeyMapper(object):
         rEvent.usec = event.usec + 25
         rEvent.value = event.value
         return rEvent
+
+    def get_active_profile_for_device(self, device, code):
+        return self.profile.get(device.name, {}).get(code, None) or self.profile.get(code, None)
+
 
     @staticmethod
     def validateKeyPair(inputKey, mapKey):
@@ -130,3 +138,7 @@ class KeyMapper(object):
         :return: bool
         """
         return hasattr(ecodes, inputKey) and hasattr(ecodes, mapKey)
+
+    @property
+    def profile(self):
+        return self.profileKeyMap.get(self.activeProfile) or {}

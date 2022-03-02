@@ -31,15 +31,29 @@ class GameMonitor(object):
         self.activeGames = set()
         self.keymap = pyc.keymapper
         for key, value in self.settings.profilesConfig.items():
-            # self.keymap.addProfileKeyMap(value.get('keys'), key)
-            self.keymap.add_profile_keymap(value.get('keys'), key)
+            self.keymap.add_profile_keymap(value.get('default-keys'), key)
+            for dev in value.get('devices', []):
+                self.keymap.add_profile_keymap(dev.get('keys'), key, deviceName=dev.get('name', ''))
 
     def run(self, kill_now, globalQueue):
+        def __psHelper(process):
+            try:
+                return process.exe().lower()
+            except psutil.NoSuchProcess as e:
+                return ''
+            except psutil.AccessDenied as e:
+                try:
+                    process.name().lower()
+                except Exception as e:
+                    return ''
+            except Exception as e:
+                return ''
+
         try:
             while bool(kill_now.value):
-                procs = [proc.exe().lower() for proc in psutil.process_iter()]
+                procs = list(filter(None, [__psHelper(proc) for proc in psutil.process_iter()]))
                 for proc in procs:
-                    if [g for g in self.games if g in proc or proc in g] and proc not in self.activeGames:
+                    if proc not in self.activeGames and [g for g in self.games if g in proc or proc in g]:
                         profile = self.findProfile(proc)
                         if profile is None:
                             continue

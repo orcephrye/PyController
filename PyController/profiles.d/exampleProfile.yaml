@@ -1,10 +1,17 @@
 # The 'executable' value can the a full path or just the executable. Launch the game and use 'ps awux' to find what the
 # game binary is called as it may not be what you expect.
-default: # This will be the name of the profile
+RTS: # This will be the name of the profile
   executable: CompanyOfHeroes2 # This should be the name of the executable that runs your game. IE CompanyOfHeroes
-  keys: # Below is a list of keys that should be remapped
-    KEY_LEFTALT: KEY_U # This must be spaced just like this. Invalid yaml entries will cause an error. Invalid KEY_* entries will be ignroed.
-example2: # There can be multiple profiles in the same config file.
+  defualts-keys: # Below is a list of keys that should be remapped across all enabled devices
+    KEY_LEFTALT: KEY_U # This must be spaced just like this. Invalid yaml entries will cause an error. Invalid KEY_* entries will be ignored.
+  devices:
+    - Name: "Nostromo" # The name of the device as per the 'name' field in the device.yaml config file.
+      keys:
+        KEY_S: KEY_T
+    - Name: "Tartarus_V2" # Can have more than one specified device.
+      keys:
+        KEY_S: KEY_T
+RPGs: # There can be multiple profiles in the same config file.
   executable: [MarsSteam, kingmaker.exe] # You can link multiple games to one profile
   keys:
     KEY_A: KEY_B
