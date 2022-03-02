@@ -3,8 +3,7 @@
 
 # Author: Ryan Henrichson
 # Description: This package holds the code for mapping keys so that one can.
-
-
+import asyncio
 import logging
 import time
 from evdev import InputEvent, ecodes
@@ -34,38 +33,34 @@ class KeyMapper(object):
         self.deviceKeyMap = {}
         self.profileKeyMap = {}
 
-    def addDeviceKeyMapping(self, device, keys):
+    def add_device_keymap(self, device, keys):
         """
             This creates a dictionary of key mappings for a particular device.
+
         :param device: str
         :param keys: dictionary
         :return: dictionary
         """
-        if device.type == 'EV_KEY':
-            self.deviceKeyMap[device] = {i: (i, ) for i in device.evdevice.capabilities().get(1, [])}
-        elif device.type == 'EV_BUTTON':
-            self.deviceKeyMap[device] = {i: (i, ) for i in device.evdevice.capabilities().get(2, [])}
-        else:
-            raise ValueError(f'The device.type is: {device.type} but it needs to be ether EV_KEY or EV_BUTTON')
 
-        # log.debug(f'The capabilities of the evdevice: {device} is: {self.deviceKeyMap[device]}')
+        log.info(f"Building keymap for [{device}] with keys: {keys}")
+
+        if device not in self.deviceKeyMap:
+            self.deviceKeyMap[device] = {}
 
         for inputKey, mapKey in keys.items():
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
                 log.warning(f'The key map of input: {inputKey} mapped to {mapKey} failed validation.')
                 continue
-            if type(mapKey) is list:
-                self.deviceKeyMap[device][getattr(ecodes, inputKey)] = tuple([getattr(ecodes, i) for i in mapKey])
-            else:
-                self.deviceKeyMap[device][getattr(ecodes, inputKey)] = (getattr(ecodes, mapKey), )
 
-        for inputKey, outputKeyTuple in self.deviceKeyMap[device].items():
-            self.deviceKeyMap[device][inputKey] = tuple([InputEvent(time.time(), 0, ecodes.EV_KEY, key, 1)
-                                                         for key in outputKeyTuple])
+            self.deviceKeyMap[device][getattr(ecodes, inputKey)] = InputEvent(time.time(),
+                                                                              0,
+                                                                              ecodes.EV_KEY,
+                                                                              getattr(ecodes, mapKey),
+                                                                              1)
 
         return self.deviceKeyMap[device]
 
-    def addProfileKeyMap(self, profileKeys, profileName):
+    def add_profile_keymap(self, profileKeys, profileName):
         """
             This updates the 'profileKeyMap' variable with more key mappings.
         :param profileKeys: dictionary
@@ -80,14 +75,11 @@ class KeyMapper(object):
             if not KeyMapper.validateKeyPair(inputKey, mapKey):
                 log.warning(f'The key map of input: {inputKey} mapped to {mapKey} failed validation.')
                 continue
-            if type(mapKey) is list:
-                self.profileKeyMap[profileName][getattr(ecodes, inputKey)] = tuple([getattr(ecodes, i) for i in mapKey])
-            else:
-                self.profileKeyMap[profileName][getattr(ecodes, inputKey)] = (getattr(ecodes, mapKey), )
-
-        for inputKey, outputKeyTuple in self.profileKeyMap[profileName].items():
-            self.profileKeyMap[profileName][inputKey] = tuple([InputEvent(time.time(), 0, ecodes.EV_KEY, key, 1)
-                                                               for key in outputKeyTuple])
+            self.profileKeyMap[profileName][getattr(ecodes, inputKey)] = InputEvent(time.time(),
+                                                                                    0,
+                                                                                    ecodes.EV_KEY,
+                                                                                    getattr(ecodes, mapKey),
+                                                                                    1)
 
     def makeProfileActive(self, profileName):
         """
@@ -106,7 +98,7 @@ class KeyMapper(object):
             log.info(f'Deactivating profile: {profileName}')
             self.activeProfile = None
 
-    def mapEvent(self, event, device):
+    def map_event(self, event, device):
         """
             This takes an event and a deviceKeyMap. The method first checks the profileKeyMap and will ignore the
             deviceKeyMap as anything in a profile should override the device settings.
@@ -115,22 +107,17 @@ class KeyMapper(object):
         :return: InputEvent
         """
         if event.type != ecodes.EV_KEY:
-            # log.debug(f'The event ({event}) was received and returned')
-            yield event
-        else:
-            currentTime = event.sec
-            currentUsec = event.usec
-            for returnEvent in self.profileKeyMap.get(self.activeProfile, {}).get(event.code, ()) or \
-                               self.deviceKeyMap[device].get(event.code, ()):
-                if type(returnEvent) is float:
-                    time.sleep(returnEvent)
-                    continue
-                returnEvent.sec = currentTime
-                currentUsec += 100
-                returnEvent.usec = currentUsec
-                returnEvent.value = event.value
-                # log.debug(f'The event ({event}) was received and has been mapped too: ({returnEvent})')
-                yield returnEvent
+            return event
+
+        rEvent = self.profileKeyMap.get(self.activeProfile, {}).get(event.code,
+                                                                    self.deviceKeyMap[device].get(event.code, None))
+        if rEvent is None:
+            return event
+
+        rEvent.sec = event.sec
+        rEvent.usec = event.usec + 25
+        rEvent.value = event.value
+        return rEvent
 
     @staticmethod
     def validateKeyPair(inputKey, mapKey):
@@ -142,9 +129,4 @@ class KeyMapper(object):
         :param mapKey: str
         :return: bool
         """
-        if type(mapKey) is list:
-            for mapk in mapKey:
-                if not hasattr(ecodes, mapk):
-                    return False
-            return hasattr(ecodes, inputKey)
         return hasattr(ecodes, inputKey) and hasattr(ecodes, mapKey)

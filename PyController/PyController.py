@@ -13,9 +13,9 @@ import asyncio
 import warnings
 import traceback
 import sys
-from ArgumentWrapper import getArguments, CLASSIC_KEYBOARD
+from ArgumentWrapper import getArguments, CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
 from multiprocessing import Process, Value, Queue
-from PyDevices import DeviceManager, AsyncDeviceWorker, Device
+from PyDevices import DeviceManager, async_device_worker,  Device
 from SettingsManager import SettingsManager as Settings
 from GameMonitor import GameMonitor
 from KeyMap import KeyMapper
@@ -108,7 +108,7 @@ class PyController(object):
         log.info("Making Device Input Tasks")
         for device in self.devManager.devices:
             if device.isValid:
-                self.devWorkers.append(loop.create_task(AsyncDeviceWorker(device)))
+                self.devWorkers.append(loop.create_task(async_device_worker(device)))
 
         if self.settings.profilesConfig:
             self.gameMonitorTask = loop.create_task(self.gameMonitor())
@@ -207,6 +207,13 @@ def print_classic_keys():
           "KEY_PLAYPAUSE, KEY_PREVIOUSSONG]")
 
 
+def print_controller_buttons():
+    print("\nBelow is a print out of all BUTTON type presses supported by EVDEV and thus PyController\n")
+    print('\n'.join(CONTROLLER_BUTTONS))
+    print("\nNOTE: This should be an exhaustive list however some buttons or triggers use ABS instead which is not"
+          "supported by PyController so the events will simply be passed through to the OS.")
+
+
 def _find_device(pyc, deviceid):
     if ':' not in deviceid:
         print(f'The device ID information [{deviceid}] is not formatted correctly. Needs to be XXXX:XXXX')
@@ -264,8 +271,12 @@ def main():
     p = None
     args = getArguments()
     try:
-        if args.print_classic_keys:
-            return print_classic_keys()
+        if args.print_classic_keys or args.print_controller_buttons:
+            if args.print_classic_keys:
+                print_classic_keys()
+            if args.print_controller_buttons:
+                print_controller_buttons()
+            return
         if args.showconfigpath:
             print(Settings(args).showConfigPath())
             return

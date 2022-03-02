@@ -26,6 +26,30 @@ CLASSIC_KEYBOARD = ['KEY_ESC', 'KEY_1', 'KEY_2', 'KEY_3', 'KEY_4', 'KEY_5', 'KEY
                     'KEY_FIND', 'KEY_CUT', 'KEY_KPLEFTPAREN', 'KEY_KPRIGHTPAREN']
 
 
+CONTROLLER_BUTTONS = ['BTN_0', 'BTN_1', 'BTN_2', 'BTN_3', 'BTN_4', 'BTN_5', 'BTN_6', 'BTN_7', 'BTN_8', 'BTN_9',
+                      'BTN_A', 'BTN_B', 'BTN_BACK', 'BTN_BASE', 'BTN_BASE2', 'BTN_BASE3', 'BTN_BASE4', 'BTN_BASE5',
+                      'BTN_BASE6', 'BTN_C', 'BTN_DEAD', 'BTN_DIGI', 'BTN_DPAD_DOWN', 'BTN_DPAD_LEFT', 'BTN_DPAD_RIGHT',
+                      'BTN_DPAD_UP', 'BTN_EAST', 'BTN_EXTRA', 'BTN_FORWARD', 'BTN_GAMEPAD', 'BTN_GEAR_DOWN',
+                      'BTN_GEAR_UP', 'BTN_JOYSTICK', 'BTN_LEFT', 'BTN_MIDDLE', 'BTN_MISC', 'BTN_MODE', 'BTN_MOUSE',
+                      'BTN_NORTH', 'BTN_PINKIE', 'BTN_RIGHT', 'BTN_SELECT', 'BTN_SIDE', 'BTN_SOUTH', 'BTN_START',
+                      'BTN_STYLUS', 'BTN_STYLUS2', 'BTN_STYLUS3', 'BTN_TASK', 'BTN_THUMB', 'BTN_THUMB2', 'BTN_THUMBL',
+                      'BTN_THUMBR', 'BTN_TL', 'BTN_TL2', 'BTN_TOOL_AIRBRUSH', 'BTN_TOOL_BRUSH', 'BTN_TOOL_DOUBLETAP',
+                      'BTN_TOOL_FINGER', 'BTN_TOOL_LENS', 'BTN_TOOL_MOUSE', 'BTN_TOOL_PEN', 'BTN_TOOL_PENCIL',
+                      'BTN_TOOL_QUADTAP', 'BTN_TOOL_QUINTTAP', 'BTN_TOOL_RUBBER', 'BTN_TOOL_TRIPLETAP', 'BTN_TOP',
+                      'BTN_TOP2', 'BTN_TOUCH', 'BTN_TR', 'BTN_TR2', 'BTN_TRIGGER', 'BTN_TRIGGER_HAPPY',
+                      'BTN_TRIGGER_HAPPY1', 'BTN_TRIGGER_HAPPY10', 'BTN_TRIGGER_HAPPY11', 'BTN_TRIGGER_HAPPY12',
+                      'BTN_TRIGGER_HAPPY13', 'BTN_TRIGGER_HAPPY14', 'BTN_TRIGGER_HAPPY15', 'BTN_TRIGGER_HAPPY16',
+                      'BTN_TRIGGER_HAPPY17', 'BTN_TRIGGER_HAPPY18', 'BTN_TRIGGER_HAPPY19', 'BTN_TRIGGER_HAPPY2',
+                      'BTN_TRIGGER_HAPPY20', 'BTN_TRIGGER_HAPPY21', 'BTN_TRIGGER_HAPPY22', 'BTN_TRIGGER_HAPPY23',
+                      'BTN_TRIGGER_HAPPY24', 'BTN_TRIGGER_HAPPY25', 'BTN_TRIGGER_HAPPY26', 'BTN_TRIGGER_HAPPY27',
+                      'BTN_TRIGGER_HAPPY28', 'BTN_TRIGGER_HAPPY29', 'BTN_TRIGGER_HAPPY3', 'BTN_TRIGGER_HAPPY30',
+                      'BTN_TRIGGER_HAPPY31', 'BTN_TRIGGER_HAPPY32', 'BTN_TRIGGER_HAPPY33', 'BTN_TRIGGER_HAPPY34',
+                      'BTN_TRIGGER_HAPPY35', 'BTN_TRIGGER_HAPPY36', 'BTN_TRIGGER_HAPPY37', 'BTN_TRIGGER_HAPPY38',
+                      'BTN_TRIGGER_HAPPY39', 'BTN_TRIGGER_HAPPY4', 'BTN_TRIGGER_HAPPY40', 'BTN_TRIGGER_HAPPY5',
+                      'BTN_TRIGGER_HAPPY6', 'BTN_TRIGGER_HAPPY7', 'BTN_TRIGGER_HAPPY8', 'BTN_TRIGGER_HAPPY9',
+                      'BTN_WEST', 'BTN_WHEEL', 'BTN_X', 'BTN_Y', 'BTN_Z']
+
+
 def getArguments():
     my_parser = argparse.ArgumentParser(prog='PyController',
                                         description='This is a game pad key mapping tool.',
@@ -53,6 +77,13 @@ def getArguments():
                            action='store_true',
                            default=False,
                            dest='print_classic_keys',
+                           help='Prints a list of classic keys found on a standard QWERTY keyboard. As well possible'
+                                'other key types.')
+
+    my_parser.add_argument('--print-controller-buttons',
+                           action='store_true',
+                           default=False,
+                           dest='print_controller_buttons',
                            help='Prints a list of classic keys found on a standard QWERTY keyboard. As well possible'
                                 'other key types.')
 

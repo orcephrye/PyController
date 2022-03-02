@@ -31,7 +31,8 @@ class GameMonitor(object):
         self.activeGames = set()
         self.keymap = pyc.keymapper
         for key, value in self.settings.profilesConfig.items():
-            self.keymap.addProfileKeyMap(value.get('keys'), key)
+            # self.keymap.addProfileKeyMap(value.get('keys'), key)
+            self.keymap.add_profile_keymap(value.get('keys'), key)
 
     def run(self, kill_now, globalQueue):
         try:
