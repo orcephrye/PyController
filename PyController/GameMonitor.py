@@ -12,11 +12,15 @@ import time
 import traceback
 
 
-# logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
 log = logging.getLogger('GameMonitor')
 
 
 class GameMonitor(object):
+    """
+        This class object is meant to be instantiated only once and ran instead of a new forked process using
+        multiprocess. It is simply designed to monitor processes on the machine and load and unload custom key mappings
+        when a specified game runs. It uses config files located under 'profiles.d' that are enabled in main.yaml.
+    """
 
     games = None
     settings = None
@@ -54,14 +58,14 @@ class GameMonitor(object):
                 procs = list(filter(None, [__psHelper(proc) for proc in psutil.process_iter()]))
                 for proc in procs:
                     if proc not in self.activeGames and [g for g in self.games if g in proc or proc in g]:
-                        profile = self.findProfile(proc)
+                        profile = self.find_profile(proc)
                         if profile is None:
                             continue
                         self.activeGames.add(proc)
                         globalQueue.put_nowait(('makeProfileActive', profile))
                 for activeGame in [games for games in self.activeGames]:
                     if activeGame not in procs:
-                        profile = self.findProfile(activeGame)
+                        profile = self.find_profile(activeGame)
                         if profile is None:
                             continue
                         self.activeGames.remove(activeGame)
@@ -73,7 +77,7 @@ class GameMonitor(object):
             log.error(f'Error in the GameMonitor: {e}')
             log.debug(f'[DEBUG] for the GameMonitor: {traceback.format_exc()}')
 
-    def findProfile(self, game):
+    def find_profile(self, game):
         for profile, values in self.settings.profilesConfig.items():
             if type(values['executable']) is list:
                 for exe in values['executable']:

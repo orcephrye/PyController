@@ -10,15 +10,18 @@ import yaml
 import evdev
 import traceback
 import time
-from ArgumentWrapper import CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
+from PyController.ArgumentWrapper import CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
 from evdev import InputDevice, UInput, InputEvent, categorize, ecodes as e
 
 
-# logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
 log = logging.getLogger('Devices')
 
 
 async def async_device_worker(device):
+    """
+        This is what listens for new inputs and routes them to a virtual device possibly changed if it has a key map.
+    """
+    # All methods are specified ahead of time to help with optimization
     async_read_loop = device.evdevice.async_read_loop
     mapEvent = device.keymapper.map_event
     write_event = device.outDevice.write_event
@@ -35,8 +38,9 @@ async def async_device_worker(device):
 class Device(yaml.YAMLObject):
     """
         This is a class designed to hold the information regarding a particular device. It is loaded in via a yaml
-        config file located inside 'devices.d'. The file will need to contain 'vendorid', 'productid', and 'name'.
-        Keys are optional and is suppose to be a dictionary.
+        config file located inside 'devices.d'. The file will need to contain 'vendorid', 'productid', 'name' sand type.
+        Keys are optional and is supposed to be a dictionary. Also 'fullname' is optional and is meant to deal with
+        devices that has multiple input devices.
     """
     yaml_tag = u'!Device'
 
@@ -56,10 +60,12 @@ class Device(yaml.YAMLObject):
         """
             This is not used by yaml when creating the Device object. Do not edit this to troubleshoot unless you
             intend to 'manually' create a Device class.
-        :param vendorid: int
-        :param productid: int
-        :param name: str
-        :param keys: dictionary
+        :param vendorid: int - Find this out via lsusb or '--list-devices' flag.
+        :param productid: int - Find this out via lsusb or '--list-devices' flag.
+        :param name: str - The name of the Device object. This will be used to match against for profile.d configs.
+        :param type: str - Either EV_KEY or EV_BUTTON Almost certainly EV_KEY.
+        :param keys: dict - Example: {'KEY_A': 'KEY_B'}
+        :param fullname: str - Used to avoid confusion when a device appears multiple times in lsusb or '--list-devices'
         """
         self.vendorid = str(vendorid)
         self.productid = str(productid)
@@ -85,23 +91,22 @@ class Device(yaml.YAMLObject):
         :param inputDevices: List of InputDevices from evdev.
         :return: None
         """
-        self.checkDeviceVariables()
-        self.findDevice(inputDevices)
+        self.check_device_variables()
+        self.find_device(inputDevices)
         if self.isValid:    # Continue if 'findDevice' found the input devices on the OS.
-            self.setKeyMapper(keymapper)
-            self.generateOuputDevice()
+            self.set_key_mapper(keymapper)
+            self.generate_ouput_device()
 
-    def setKeyMapper(self, keymapper):
+    def set_key_mapper(self, keymapper):
         """
             This sets the keymapper and gets back a dictionary of mapped keys
         :param keymapper: KeyMapper class object
         :return: None
         """
         self.keymapper = keymapper
-        # self.deviceKeyMap = self.keymapper.addDeviceKeyMapping(self, self.keys)
         self.deviceKeyMap = self.keymapper.add_device_keymap(self, self.keys)
 
-    def checkDeviceVariables(self):
+    def check_device_variables(self):
         """
             This is called by the DeviceManager class. It is used because the '__init__' magic method for Device isn't
             used by yaml when creating these classes. So a secondary check of the variables is necessary to help prevent
@@ -121,7 +126,7 @@ class Device(yaml.YAMLObject):
             self.keys = {}
         self.evdevice = None
 
-    def findDevice(self, deviceList):
+    def find_device(self, deviceList):
         """
             This is called by the DeviceManager class. The Device tries to find the associated 'input' IO files on the
             OS that are linked to the device in question. It compares the vendorid and productid which both have to
@@ -131,9 +136,9 @@ class Device(yaml.YAMLObject):
         """
         self.evdevice = None
         for dev in deviceList:
-            if self.vendorid in Device._toHex(dev.info.vendor) and self.productid in Device._toHex(dev.info.product):
+            if self.vendorid in Device._to_hex(dev.info.vendor) and self.productid in Device._to_hex(dev.info.product):
                 log.info(f'Found device {dev}.')
-                if self.type == self.getDeviceType(dev):
+                if self.type == self.get_device_type(dev):
                     if self.fullname is not None and self.fullname != dev.name:
                         continue
                     if self.evdevice is not None:
@@ -141,14 +146,14 @@ class Device(yaml.YAMLObject):
                     self.evdevice = dev
         return self.evdevice
 
-    def mapEvent(self, event):
+    def map_event(self, event):
         """
             This is called upon by the DeviceInputWorker associated with this Device. The job is to check to see if the
             event sent (key pressed) is associated with a map.
         :param event: InputEvent object
         :return: InputEvent object
         """
-        return self.keymapper.mapEvent(event, self)
+        return self.keymapper.map_event(event, self)
 
     def grab(self):
         """
@@ -181,7 +186,7 @@ class Device(yaml.YAMLObject):
             self.outDevice.syn()
             self.outDevice.close()
 
-    def generateOuputDevice(self):
+    def generate_ouput_device(self):
         """
             This creates a new Output device on the OS that takes on the capabilities of the input devices associated
             with this device.
@@ -222,29 +227,29 @@ class Device(yaml.YAMLObject):
         return self.evdevice is not None
 
     @staticmethod
-    def isKeyboard(device):
+    def is_keyboard(device):
         return len(device.capabilities().get(1, [])) > 160
 
     @staticmethod
-    def hasKeys(device):
+    def has_keys(device):
         return len(device.capabilities().get(1, [])) > 0
 
     @staticmethod
-    def isMouse(device):
+    def is_mouse(device):
         return len(device.capabilities().get(2, [])) > 1
 
     @staticmethod
-    def getDeviceType(device):
-        if Device.isKeyboard(device) and Device.isMouse(device):
+    def get_device_type(device):
+        if Device.is_keyboard(device) and Device.is_mouse(device):
             return 'both'
-        elif Device.isMouse(device):
+        elif Device.is_mouse(device):
             return 'EV_BUTTON'
-        elif Device.isKeyboard(device) or Device.hasKeys(device):
+        elif Device.is_keyboard(device) or Device.has_keys(device):
             return 'EV_KEY'
         return 'both'
 
     @staticmethod
-    def _toHex(hexString, standardLength=4):
+    def _to_hex(hexString, standardLength=4):
         """
             This is a little short helper method that reformat the hex to match that which is found in the yaml config
             file.
@@ -268,9 +273,9 @@ class DeviceManager(object):
 
     def __init__(self, settingsManager, keymapper):
         """
-            This requires both the config load and the keymapper. It will use the configLoader to load all the different
-            devicename.yaml config files noted in the main.yaml. Each one should load a new Device class. It will pass
-            the keymapper along to the different devices it finds.
+            This requires both the SettingsManager and KeyMapper classes. It will use the SettingsManager to load all
+            the different devicename.yaml config files enabled in the main.yaml. Each one should load a new Device
+            class. It will pass the KeyMapper along to the different devices it finds.
             NOTE: the 'inputDevices' variable that is set actually is a list of all known input devices on the box. Each
                 device will look through that list to try to find its device. This is a large point of failure.
         :param settingsManager: SettingsManager object
@@ -279,43 +284,43 @@ class DeviceManager(object):
         self.settings = settingsManager
         self.keymapper = keymapper
         self.inputDevices = [InputDevice(fn) for fn in evdev.list_devices()]
-        self.getDeviceConfigs()
+        self.get_device_configs()
 
     def __str__(self):
-        return '\n'.join([f"{dev.path} - {dev.name} - {Device._toHex(dev.info.vendor)}:"
-                          f"{Device._toHex(dev.info.product)}"
+        return '\n'.join([f"{dev.path} - {dev.name} - {Device._to_hex(dev.info.vendor)}:"
+                          f"{Device._to_hex(dev.info.product)}"
                           for dev in self.inputDevices])
 
-    def getDeviceConfigs(self):
+    def get_device_configs(self):
         """
             This uses the SettingsManager protected variable 'devices' to grab the list of yaml config files from the
-            main.yaml config file. It will run the 'loadConfig' method from SettingsManager with the parameter
+            main.yaml config file. It will run the 'load_yaml' method from SettingsManager with the parameter
             'device=True' for each yaml config file it sees. It will then iterate through the nearly created list of
             devices and run a series of methods on them setting them up.
         :return:
         """
         self.devices = []
         for device in self.settings.devices:
-            self.devices.append(self.settings.loadYaml(device, device=True))
+            self.devices.append(self.settings.load_yaml(device, device=True))
         for device in self.devices:
             device.setup(self.keymapper, self.inputDevices)
         return self.devices
 
-    def findDevices(self):
+    def find_devices(self):
         for device in self.devices:
-            device.findDevice(self.inputDevices)
+            device.find_device(self.inputDevices)
 
-    def grabDevices(self):
+    def grab_devices(self):
         log.info("Grabbing all configured devices")
         for device in self.devices:
             device.grab()
 
-    def ungrabDevices(self):
+    def ungrab_devices(self):
         log.info("Releasing all configured devices")
         for device in self.devices:
             device.ungrab()
 
-    def closeDevices(self):
+    def close_devices(self):
         log.info("Closing all evdev UInput devices")
         for device in self.devices:
             device.close()
@@ -323,7 +328,7 @@ class DeviceManager(object):
             item = self.devices.pop()
             del item
 
-    def deleteInputs(self):
+    def delete_inputs(self):
         log.info("Deleting all Input Devices")
         for item in self.inputDevices:
             item.close()
