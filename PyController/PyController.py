@@ -2,7 +2,7 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.6
+# Version: 0.7
 # Date: 12/01/2016
 # Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux.
 

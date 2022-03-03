@@ -1,5 +1,5 @@
-# The 'executable' value can the a full path or just the executable. Launch the game and use 'ps awux' to find what the
-# game binary is called as it may not be what you expect.
+# The 'executable' value should be the name or part of the full path of the application. Launch the game and use
+#  'ps -wweo comm,args' to find what the game binary is called as it may not be what you expect.
 RTS: # This will be the name of the profile
   executable: CompanyOfHeroes2 # This should be the name of the executable that runs your game. IE CompanyOfHeroes
   defualts-keys: # Below is a list of keys that should be remapped across all enabled devices
@@ -12,6 +12,6 @@ RTS: # This will be the name of the profile
       keys:
         KEY_S: KEY_T
 RPGs: # There can be multiple profiles in the same config file.
-  executable: [MarsSteam, kingmaker.exe] # You can link multiple games to one profile
+  executable: [northgard, kingmaker.exe] # You can link multiple games to one profile. This is not case-sensitive
   keys:
     KEY_A: KEY_B

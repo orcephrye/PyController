@@ -8,14 +8,15 @@ PyController
 A Game Pad key mapping utility for Linux. It works well with any modern USB device including Game Controllers 
 (XBox One), Game Pads (Razer Tartarus), Keyboards and mice. 
 
-NOTE: It does not do macros IE: map one key press to multiple pre-programmed presses. This may be included in a future
+* NOTE: It does not do macros IE: map one key press to multiple pre-programmed presses. This may be included in a future
 release.
+* NOTE: This app should run before any games run as it generates a new input device and some games cannot handle a new USB device being plugged in.
 
-This utility requires Python 3.7+
 
 ### Install
 
 ----
+This utility requires Python 3.7+
 ```sh
 # Install requirements (pip should point to a Python 3.7+ environment.
 pip install -r requirements.txt
@@ -89,8 +90,8 @@ active. Example devices.yaml below:
 --- !Device # This has to be here it tells yaml to make the below information into a PyController Device object.
 name: ExampleDevice # This has to be here to and with no spaces.
 fullname: "Example Full Name of Device" # This is an optional key and used if there are multiple entries for the device
-            # and there is a need to specify which device to capture. The full name can be seen using the flag
-            # '--list-devices'.
+                                        # and there is a need to specify which device to capture. The full name can be 
+                                        # seen using the flag '--list-devices'.
 vendorid: '1111' # Also required and can be found via the lsusb command
 productid: '2222' # Also required and can be found via the lsusb command
 type: 'EV_KEY' # This should default to EV_KEY as it currently the only supported type. Others include EV_LED and so on.
@@ -110,6 +111,37 @@ python3 PyController.py --print-capabilities XXXX:XXXX
 # If you are still having trouble using this flag will listen to the device. 
 # You can try different keys to see what there symbol is.
 python3 PyController.py --print-key-presses XXXX:XXXX
+```
+
+### Game Profiles 
+
+----
+
+PyController supports making key mapping specific to a game. It will run a monitor in another process which will watch 
+for any configured game and then load the configured keymaps and unload those keymaps once the game is no longer
+running. This also supports keymaps for specific devices per game. 
+
+The example Yaml config file:
+
+```yaml
+# The 'executable' value should be the name or part of the full path of the application. Launch the game and use
+#  'ps -wweo comm,args' to find what the game binary is called as it may not be what you expect.
+RTS: # This will be the name of the profile
+  executable: CompanyOfHeroes2 # This should be the name of the executable that runs your game. IE CompanyOfHeroes
+  defualts-keys: # Below is a list of keys that should be remapped across all enabled devices
+    KEY_LEFTALT: KEY_U # This must be spaced just like this. Invalid yaml entries will cause an error. Invalid KEY_* 
+                       # entries will be ignored.
+  devices:
+    - Name: "Nostromo" # The name of the device as per the 'name' field in the device.yaml config file.
+      keys:
+        KEY_S: KEY_T
+    - Name: "Tartarus_V2" # Can have more than one specified device.
+      keys:
+        KEY_S: KEY_T
+RPGs: # There can be multiple profiles in the same config file.
+  executable: [northgard, kingmaker.exe] # You can link multiple games to one profile. This is not case-sensitive
+  keys:
+    KEY_A: KEY_B
 ```
 
 More information will follow.
