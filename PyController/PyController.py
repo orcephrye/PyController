@@ -2,9 +2,10 @@
 # -*- coding=utf-8 -*-
 
 # Author: Ryan Henrichson
-# Version: 0.7
+# Version: 0.9
 # Date: 12/01/2016
-# Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux.
+# Description: This is a game pad key mapping tool may originally for the Razor Nostromo to run on Linux. However, this
+# has been tested on multiple different devices and should work for any USB device that has KEY events.
 
 
 import logging
@@ -13,32 +14,35 @@ import asyncio
 import warnings
 import traceback
 import sys
-from ArgumentWrapper import getArguments, CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
+from PyController.ArgumentWrapper import getArguments, CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
 from multiprocessing import Process, Value, Queue
-from PyDevices import DeviceManager, async_device_worker,  Device
-from SettingsManager import SettingsManager as Settings
-from GameMonitor import GameMonitor
-from KeyMap import KeyMapper
+from PyController.PyDevices import DeviceManager, async_device_worker, Device
+from PyController.SettingsManager import SettingsManager as Settings
+from PyController.GameMonitor import GameMonitor
+from PyController.KeyMap import KeyMapper
 
 
+# For development debuging purposes ONLY
+# logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
 log = logging.getLogger('PyControlMain')
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-kill_now = Value('i', 1)
-globalQueue = Queue()
+kill_now = Value('i', 1)    # Global variable for controlling the GameMonitor process
+global_queue = Queue()  # Global multiprocess queue for sending signals for game monitoring
 
 
-def dummyFunction(*args, **kwargs):
+def dummy_function(*args, **kwargs):
     log.warning(f'This dummy function was called which should never happen')
     return kwargs.get('_default', None)
 
 
 class GracefulKiller(object):
     """
-        This class is designed to be instantiated once and then passed around to all the DeviceInputWorker classes to be
+        This class is designed to be instantiated once and then passed around to all the Device classes to be
         used as a stop gap for when a kill signal as been received. It is also used in the 'run' method of the
-        PyController class. It simply changes the 'kill_now' from a False to a True allowing for a while loop to exit.
+        GameMonitor class. It changes the 'kill_now' value to 0 to end otherwise infinite while loop and it also
+        cancels and gathers all coroutines and stops the Asysnc loop.
     """
 
     pyc = None
@@ -80,10 +84,11 @@ class GracefulKiller(object):
 class PyController(object):
     """
         The main class of the PyController project. This sets up all the other packages and 'gets the ball rolling'.
-        It takes no arguments but uses the SettingsManager class to pull settings from the main.yaml config file.
+        It gets passed an ArgParse namespace that has parsed as well as the current installed directory.
     """
 
     killer = None
+    install_dir = None
     arguments = None
     settings = None
     devManager = None
@@ -92,18 +97,22 @@ class PyController(object):
     keymapper = None
     asyncLoop = None
 
-    def __init__(self, arguments):
+    def __init__(self, arguments, install_dir=None):
         self.arguments = arguments
-        self.settings = Settings(self.arguments)  # This is passed to the KeyMapper and to the DeviceManager
-        self.configureLogging()  # This uses the Settings manager to set the logging settings
-        self.keymapper = KeyMapper(self.settings)   # This is used by the DeviceManager and is passed to each Device
+        self.install_dir = install_dir
+        self.settings = Settings(self.arguments, install_dir=self.install_dir)  # Manages settings
+        self.configure_logging()  # This uses the Settings manager to set the logging settings
+        self.keymapper = KeyMapper(self.settings)  # This is used by the DeviceManager and is passed to each Device
         self.devManager = DeviceManager(self.settings, self.keymapper)  # This setups all the devices found in devices.d
-        self.devWorkers = []    # This is where the AsyncDeviceWorker coroutines/tasks are stored
+        self.devWorkers = []  # This is where the AsyncDeviceWorker coroutines/tasks are stored
 
     def setup(self, loop, killer):
+        """
+            Attempts to 'grab' all EVDev devices and then adds all 'async_device_worker' coroutines to a AsysnIO loop.
+        """
         log.info("Setting up PyController!")
         self.killer = killer
-        self.devManager.grabDevices()
+        self.devManager.grab_devices()
 
         log.info("Making Device Input Tasks")
         for device in self.devManager.devices:
@@ -111,15 +120,15 @@ class PyController(object):
                 self.devWorkers.append(loop.create_task(async_device_worker(device)))
 
         if self.settings.profilesConfig:
-            self.gameMonitorTask = loop.create_task(self.gameMonitor())
+            self.gameMonitorTask = loop.create_task(self.game_monitor())
 
         return self.devWorkers
 
     def run(self, *args, **kwargs):
         """
-            This grabs the devices from devManager and then starts all the DeviceInputWorkers. It then sits in a while
-            loop waiting for a kill signal. Its job once the signal is received is to clean up by exiting the DIWs,
-            releasing grabbed devices and closing any created input devices.
+            This first sets up a new asysncio event loop. Then it makes the GracefulKiller and runs the 'setup' method.
+            It loops forever on the asysncio which will be distributed by the GracefulKiller once told to shut down.
+            It calls the 'shutdown' method after execution ends.
         :return: None
         """
 
@@ -142,33 +151,41 @@ class PyController(object):
         return
 
     def shutdown(self):
+        """
+            A critically important step and ungrab, closes, and deletes all EV devices. If this doesn't happen or
+            something goes wrong here than it is likely the program will hang and not close properly.
+        """
         try:
             log.info("Disconnecting Devices")
-            self.devManager.ungrabDevices()
-            self.devManager.closeDevices()
-            self.devManager.deleteInputs()
+            self.devManager.ungrab_devices()
+            self.devManager.close_devices()
+            self.devManager.delete_inputs()
             log.info("Ending PyController!")
         except Exception as e:
             log.error(f"Error in shutdown: {e}")
             log.debug(f"[DEBUG] for shutdown: {traceback.format_exc()}")
 
-    async def gameMonitor(self):
-        global globalQueue
+    async def game_monitor(self):
+        """
+            This runs only if there is a profile enabled in main.yaml. It listens to the 'global_queue' queue for
+            events that enable or disable different game profiles.
+        """
+        global global_queue
         while bool(kill_now.value):
-            if not globalQueue.empty():
+            if not global_queue.empty():
                 try:
-                    value = globalQueue.get_nowait()
+                    value = global_queue.get_nowait()
                     log.debug(f'The received value is: {value}')
-                    getattr(self.keymapper, value[0], dummyFunction)(value[1])
+                    getattr(self.keymapper, value[0], dummy_function)(value[1])
                 except Exception as e:
                     log.error(f'Error in gameMonitor PyController method: {e}')
                     log.debug(f'[DEBUG] for gameMonitor PyController method: {traceback.format_exc()}')
             await asyncio.sleep(5)
 
-    def configureLogging(self):
+    def configure_logging(self):
         """
             Sets up the logging for the box. Gets its configuration information from SettingsManager which gets its info
-            from main.yaml
+            from main.yaml. Flags can be sent that override logging configuration from the settings.
         :return: None
         """
 
@@ -189,17 +206,23 @@ class PyController(object):
 
 
 def print_list(pyc):
+    """
+        Handles the '--print-devices' flag
+    """
     print("\nBelow is a list of all accessible devices. There may appear to be duplicates.\n")
     print(pyc.devManager)
     print("\nIf the list doesn't show your device but 'lsusb' does then the app doesn't have permission access "
           "the device. You can verify by running as root. \n[NOTE: It is not recommended to run this application as "
           "root for daily use only for troubleshooting.] \nUsually adding a group to the desired user will solve this "
           "issue.\n")
-    pyc.devManager.closeDevices()
-    pyc.devManager.deleteInputs()
+    pyc.devManager.close_devices()
+    pyc.devManager.delete_inputs()
 
 
 def print_classic_keys():
+    """
+        Handles the '--print-classic-keys' flag
+    """
     print("\nBelow is a print out of most keys found on a classic keyboard. This is to be used as a reference to "
           "determine what to write in the yaml config file for a device.\n")
     print('\n'.join(CLASSIC_KEYBOARD))
@@ -208,6 +231,9 @@ def print_classic_keys():
 
 
 def print_controller_buttons():
+    """
+        Handles the '--print-controller-buttons' flag
+    """
     print("\nBelow is a print out of all BUTTON type presses supported by EVDEV and thus PyController\n")
     print('\n'.join(CONTROLLER_BUTTONS))
     print("\nNOTE: This should be an exhaustive list however some buttons or triggers use ABS instead which is not"
@@ -215,13 +241,17 @@ def print_controller_buttons():
 
 
 def _find_device(pyc, deviceid):
+    """
+        Helper private function used by 'print_capabilities' and 'print_key_presses'. Finds all devices that this
+        application has permission to read/write.
+    """
     if ':' not in deviceid:
         print(f'The device ID information [{deviceid}] is not formatted correctly. Needs to be XXXX:XXXX')
         return False
     vendorid = deviceid.split(':')[0]
     productid = deviceid.split(':')[1]
     device = Device(vendorid, productid, 'PrintCapabilities', type='EV_KEY')
-    device.findDevice(pyc.devManager.inputDevices)
+    device.find_device(pyc.devManager.inputDevices)
     if not device.isValid:
         print(f'Could not find specified device: {deviceid}')
         return False
@@ -229,6 +259,9 @@ def _find_device(pyc, deviceid):
 
 
 def print_capabilities(pyc):
+    """
+        Handles the '--print-capabilities' flag.
+    """
     deviceid = pyc.arguments.print_capabilities
 
     device = _find_device(pyc, deviceid)
@@ -239,11 +272,14 @@ def print_capabilities(pyc):
     print(f"\nAttempting to print KEY capabilities of device: {device.evdevice}:\n")
     print("\n".join([item[0] if type(item[0]) is str else " / ".join(item[0]) for item in caps[("EV_KEY", 1)]]))
     print("\n")
-    pyc.devManager.closeDevices()
-    pyc.devManager.deleteInputs()
+    pyc.devManager.close_devices()
+    pyc.devManager.delete_inputs()
 
 
 def print_key_presses(pyc):
+    """
+        Handles the '--print-key-presses' flag.
+    """
     deviceid = pyc.arguments.print_key_presses
 
     try:
@@ -263,14 +299,16 @@ def print_key_presses(pyc):
         log.debug(f"[DEBUG] for print_key_presses: {traceback.format_exc()}")
     finally:
         print("\n")
-        pyc.devManager.closeDevices()
-        pyc.devManager.deleteInputs()
+        pyc.devManager.close_devices()
+        pyc.devManager.delete_inputs()
 
 
-def main():
+def main(install_dir=None):
     p = None
     args = getArguments()
     try:
+
+        # Handle flags that do not require an instance of the PyController object first
         if args.print_classic_keys or args.print_controller_buttons:
             if args.print_classic_keys:
                 print_classic_keys()
@@ -278,21 +316,27 @@ def main():
                 print_controller_buttons()
             return
         if args.showconfigpath:
-            print(Settings(args).showConfigPath())
+            print(Settings(args, install_dir=install_dir).show_config_path())
             return
-        pyc = PyController(args)
+
+        # Create the PyController instance at this point the devices will be registered
+        pyc = PyController(args, install_dir=install_dir)
         if args.print_capabilities:
             return print_capabilities(pyc)
         if args.print_key_presses:
             return print_key_presses(pyc)
         if args.list_devices:
             return print_list(pyc)
+
+        # Make a new forked process that strictly handles monitoring system processes for games specified by the profile
         if pyc.settings.profilesConfig:
             log.info("Making a Game monitor because profiles have been configured.")
             gm = GameMonitor(pyc)
-            p = Process(target=gm.run, args=(kill_now, globalQueue,))
+            p = Process(target=gm.run, args=(kill_now, global_queue,))
             p.start()
+
         pyc.run()
+
     except Exception as e:
         log.error(f"Error in Main: {e}")
         log.debug(f"[DEBUG] for Main: {traceback.format_exc()}")

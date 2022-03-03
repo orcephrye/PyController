@@ -3,13 +3,13 @@
 
 # Author: Ryan Henrichson
 # Description: This package holds the code for mapping keys so that one can.
-import asyncio
+
+
 import logging
 import time
 from evdev import InputEvent, ecodes
 
 
-# logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
 log = logging.getLogger('KeyMapper')
 
 
@@ -48,7 +48,7 @@ class KeyMapper(object):
             self.deviceKeyMap[device] = {}
 
         for inputKey, mapKey in keys.items():
-            if not KeyMapper.validateKeyPair(inputKey, mapKey):
+            if not KeyMapper.validate_key_pair(inputKey, mapKey):
                 log.warning(f'The key map of input: {inputKey} mapped to {mapKey} failed validation.')
                 continue
 
@@ -75,7 +75,7 @@ class KeyMapper(object):
             self.profileKeyMap[profileName][deviceName] = {}
 
         for inputKey, mapKey in profileKeys.items():
-            if not KeyMapper.validateKeyPair(inputKey, mapKey):
+            if not KeyMapper.validate_key_pair(inputKey, mapKey):
                 log.warning(f'The key map of input: {inputKey} mapped to {mapKey} failed validation.')
                 continue
             self.profileKeyMap[profileName][getattr(ecodes, inputKey)] = InputEvent(time.time(),
@@ -84,7 +84,7 @@ class KeyMapper(object):
                                                                                     getattr(ecodes, mapKey),
                                                                                     1)
 
-    def makeProfileActive(self, profileName):
+    def make_profile_active(self, profileName):
         """
             This checks the name provided by the config file against the profileKeys dictionary and if it exists sets
             the activeProve variable to it.
@@ -96,7 +96,7 @@ class KeyMapper(object):
             log.debug(f'The new profile settings to be used: {self.profileKeyMap.get(profileName)}')
             self.activeProfile = profileName
 
-    def deactivateProfile(self, profileName):
+    def deactivate_profile(self, profileName):
         if profileName == self.activeProfile:
             log.info(f'Deactivating profile: {profileName}')
             self.activeProfile = None
@@ -128,7 +128,7 @@ class KeyMapper(object):
 
 
     @staticmethod
-    def validateKeyPair(inputKey, mapKey):
+    def validate_key_pair(inputKey, mapKey):
         """
             A simple little validator. This makes sure that the key and the key you want to map it to are valid.
             NOTE: This is a failure point. If you put a key in here that isn't registered by evdev.ecodes then it will

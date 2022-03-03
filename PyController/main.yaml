@@ -1,13 +1,13 @@
 main:
   deviceDir: 'devices.d' # Currently, this cannot be changed.
   profileDir: 'profiles.d' # Currently, this cannot be changed.
-  logging: True # By Default this is set to False change to True if you want to log
+  logging: False # By Default this is set to False change to True if you want to log
   loglevel: "DEBUG" # DEBUG, INFO, WARNING, ERROR, CRITICAL (DEBUG is the most verbose)
 devices:
-#  - nostromo.yaml
+# - exampleDevice.yaml
+# - nostromo.yaml
 # - tartarus.yaml
 # - tartarusv2.yaml
-# - exampleDevice.yaml
-  - LogitechG610.yaml
+# - LogitechG610.yaml
 profiles:
 #  - exampleProfile.yaml

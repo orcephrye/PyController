@@ -27,33 +27,34 @@ profiles:
 """
 
 
-# logging.basicConfig(format='%(module)s %(funcName)s %(lineno)s %(message)s', level=logging.DEBUG)
 log = logging.getLogger('ConfigLoader')
 
 
 class SettingsManager(object):
 
     arguments = None
+    installDir = None
     configDir = None
     mainConfigFile = None
     mainConfig = None
     profilesConfig = None
 
-    def __init__(self, arguments):
+    def __init__(self, arguments, install_dir=None):
         """
-            This whole classes job is to pull yaml config files particular the main.yaml which is has a series of
+            This whole classes job is to pull yaml config files particular the main.yaml which has a series of
             'shortcut' protected variables to grab the useful information out of the main.yaml config file.
         """
         super().__init__()
         self.configDir = os.path.join(GLib.get_user_config_dir(), 'PyController/')
+        self.installDir = install_dir if install_dir else os.path.realpath(sys.path[0])
         self.mainConfigFile = os.path.join(self.configDir + defaultMainConfigFile)
         if not os.path.exists(self.configDir) or not os.path.exists(self.mainConfigFile):
-            self.setupConfigs()
+            self.setup_configs()
         self.arguments = arguments
-        self.loadMainConfig()
-        self.loadProfiles()
+        self.load_main_config()
+        self.load_profiles()
 
-    def setupConfigs(self):
+    def setup_configs(self):
         if not os.path.exists(self.configDir):
             os.makedirs(self.configDir)
         if not os.path.exists(self.mainConfigFile):
@@ -64,37 +65,37 @@ class SettingsManager(object):
         if not os.path.exists(os.path.join(self.configDir, profileDir)):
             os.makedirs(os.path.join(self.configDir, profileDir))
         if not os.path.exists(os.path.join(self.configDir, deviceDir, 'exampleDevice.yaml')):
-            if os.path.exists(os.path.join(os.path.realpath(sys.path[0]), deviceDir, 'exampleDevice.yaml')):
+            if os.path.exists(os.path.join(self.installDir, deviceDir, 'exampleDevice.yaml')):
                 os.system(f"cp "
-                          f"{os.path.join(os.path.realpath(sys.path[0]), deviceDir, 'exampleDevice.yaml')} "
+                          f"{os.path.join(self.installDir, deviceDir, 'exampleDevice.yaml')} "
                           f"{os.path.join(self.configDir, deviceDir, 'exampleDevice.yaml')}")
         if not os.path.exists(os.path.join(self.configDir, profileDir, 'exampleProfile.yaml')):
-            if os.path.exists(os.path.join(os.path.realpath(sys.path[0]), profileDir, 'exampleProfile.yaml')):
+            if os.path.exists(os.path.join(self.installDir, profileDir, 'exampleProfile.yaml')):
                 os.system(f"cp "
-                          f"{os.path.join(os.path.realpath(sys.path[0]), profileDir, 'exampleProfile.yaml')} "
+                          f"{os.path.join(self.installDir, profileDir, 'exampleProfile.yaml')} "
                           f"{os.path.join(self.configDir, profileDir, 'exampleProfile.yaml')}")
 
-    def showConfigPath(self):
+    def show_config_path(self):
         return f"\n{self.mainConfigFile if self.arguments.config == defaultMainConfigFile else self.arguments.config}\n"
 
-    def loadMainConfig(self):
+    def load_main_config(self):
         """
             This logs the main config file. This is necessary for the program to work.
         :return: None
         """
         configfile = self.mainConfigFile if self.arguments.config == defaultMainConfigFile else self.arguments.config
         log.info("Loading main config file: %s" % configfile)
-        self.mainConfig = self.loadYaml(configfile)
+        self.mainConfig = self.load_yaml(configfile)
         assert isinstance(self.mainConfig, dict)
 
-    def loadProfiles(self):
+    def load_profiles(self):
         self.profilesConfig = {}
         for profile in self.profiles:
-            self.profilesConfig.update(self.loadYaml(profile, profile=True))
+            self.profilesConfig.update(self.load_yaml(profile, profile=True))
 
-    def configLoader(self, filepath, device=False, profile=False):
+    def config_loader(self, filepath, device=False, profile=False):
         """
-            This method loads a file from disk and returns it. By default the loadYaml parameter is set to True so the
+            This method loads a file from disk and returns it. By default the load_yaml parameter is set to True so the
             method will first try to pass the file contents through 'yaml.load' and then return that.
         :param filepath: str: a filename
         :param device: bool: Default False: Tells the method to pre-append the deviceDir to the filename.
@@ -112,8 +113,8 @@ class SettingsManager(object):
             config = f.read()
         return config
 
-    def loadYaml(self, file, *args, **kwargs):
-        return yaml.load(self.configLoader(file, *args, **kwargs), Loader=yaml.Loader)
+    def load_yaml(self, file, *args, **kwargs):
+        return yaml.load(self.config_loader(file, *args, **kwargs), Loader=yaml.Loader)
 
     @property
     def devices(self):
