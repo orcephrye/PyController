@@ -14,8 +14,8 @@ import asyncio
 import warnings
 import traceback
 import sys
-from PyController.ArgumentWrapper import getArguments, CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
 from multiprocessing import Process, Value, Queue
+from PyController.ArgumentWrapper import getArguments, CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
 from PyController.PyDevices import DeviceManager, async_device_worker, Device
 from PyController.SettingsManager import SettingsManager as Settings
 from PyController.GameMonitor import GameMonitor
@@ -57,11 +57,11 @@ class GracefulKiller(object):
                 s, lambda s=s: asyncio.create_task(self.exit_gracefully(s)))
 
     async def exit_gracefully(self, s):
+        global kill_now
         try:
             logging.info(f"Received exit signal {s.name}...")
-            global kill_now
+
             kill_now.value = 0
-            log.info("Changed kill value")
 
             tasks = [t for t in asyncio.all_tasks() if t is not
                      asyncio.current_task()]
@@ -131,9 +131,10 @@ class PyController(object):
             It calls the 'shutdown' method after execution ends.
         :return: None
         """
+        global killer
 
         log.info("Setting up and running PyController")
-        global killer
+
         loop = asyncio.get_event_loop()
 
         try:

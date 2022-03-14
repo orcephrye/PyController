@@ -10,8 +10,8 @@ import yaml
 import evdev
 import traceback
 import time
-from PyController.ArgumentWrapper import CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
 from evdev import InputDevice, UInput, InputEvent, categorize, ecodes as e
+from PyController.ArgumentWrapper import CLASSIC_KEYBOARD, CONTROLLER_BUTTONS
 
 
 log = logging.getLogger('Devices')
@@ -39,8 +39,8 @@ class Device(yaml.YAMLObject):
     """
         This is a class designed to hold the information regarding a particular device. It is loaded in via a yaml
         config file located inside 'devices.d'. The file will need to contain 'vendorid', 'productid', 'name' sand type.
-        Keys are optional and is supposed to be a dictionary. Also 'fullname' is optional and is meant to deal with
-        devices that has multiple input devices.
+        Keys are optional and is supposed to be a dictionary. 'fullname' is optional and is meant to deal with devices
+        that has multiple input devices.
     """
     yaml_tag = u'!Device'
 
@@ -142,8 +142,13 @@ class Device(yaml.YAMLObject):
                     if self.fullname is not None and self.fullname != dev.name:
                         continue
                     if self.evdevice is not None:
+                        log.error(f"Device {self.name} was found more then once! This can be caused by error in "
+                                  f"configuration. Suggestion is to use the 'fullname' key in the device's yaml "
+                                  f"config file. ")
                         raise Exception("This device was found more then once!")
                     self.evdevice = dev
+        if self.evdevice is None:
+            log.error(f"Device {self.name} not found!")
         return self.evdevice
 
     def map_event(self, event):

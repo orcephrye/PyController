@@ -17,7 +17,7 @@ log = logging.getLogger('GameMonitor')
 
 class GameMonitor(object):
     """
-        This class object is meant to be instantiated only once and ran instead of a new forked process using
+        This class object is meant to be instantiated only once and ran inside a new forked process using
         multiprocess. It is simply designed to monitor processes on the machine and load and unload custom key mappings
         when a specified game runs. It uses config files located under 'profiles.d' that are enabled in main.yaml.
     """
