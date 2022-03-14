@@ -20,7 +20,10 @@ release.
 This utility requires Python 3.7+
 ```sh
 # Install requirements (pip should point to a Python 3.7+ environment.
+# cd to path
 pip install -r requirements.txt
+# Once this is has an official non-beta release this will be published on PyPI and this command can change
+pip install .
 ```
 
 This tool was originally made for The Razor Nostromo but can work on any other game pad that can be manipulated by
