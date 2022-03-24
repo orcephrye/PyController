@@ -29,8 +29,7 @@ pip install .
 This tool was originally made for The Razor Nostromo but can work on any other game pad that can be manipulated by
 evdev. (Which should be all USB keyboard devices)
 
-The main config file is called main.yaml. It references files for devices
-in devices.d/. By default it looks for nostromo.yaml which exists.
+The main config file is called main.yaml. It references files for devices in devices.d/.
 
 ### Finding and connecting devices
 
@@ -143,7 +142,7 @@ RTS: # This will be the name of the profile
       keys:
         KEY_S: KEY_T
 RPGs: # There can be multiple profiles in the same config file.
-  executable: [northgard, kingmaker.exe] # You can link multiple games to one profile. This is not case-sensitive
+  executable: [pillarsofeternity, kingmaker.exe] # You can link multiple games to one profile. This is not case-sensitive
   keys:
     KEY_A: KEY_B
 ```
