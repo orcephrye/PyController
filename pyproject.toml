@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "PyController"
+dynamic = ["version"]
+description = "A Game Pad/Controller key mapping utility"
+readme = "README.md"
+license = "GPL-3.0"
+requires-python = ">=3.8"
+authors = [
+    { name = "OrcephRye", email = "orcephrye@gmail.com" },
+]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+]
+dependencies = [
+    "evdev",
+    "psutil",
+    "PyGObject",
+    "PyYAML",
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/orcephrye/PyController/issues"
+Homepage = "https://github.com/orcephrye/PyController"
+
+[tool.hatch.version]
+path = "PyController/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/PyController",
+]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["PyController/"]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.8", "3.9", "3.10", "3.11"]
+
+[tool.hatch.envs.default.scripts]
+# Ignore this entrypoint for now, as it's not fully implemented
+clean-build = [
+    "rm -fr build",
+    "rm -fr dist",
+    "rm -fr .eggs",
+    "find . -name '*.egg-info' -exec rm -fr {{}} +",
+    "find . -name '*.egg' -exec rm -f {{}} +",
+]
+clean-pyc = [
+    "find . -name '*.pyc' -exec rm -f {{}} +",
+    "find . -name '*.pyo' -exec rm -f {{}} +",
+    "find . -name '*~' -exec rm -f {{}} +",
+    "find . -name '__pycache__' -exec rm -fr {{}} +",
+]
