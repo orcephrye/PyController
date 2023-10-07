@@ -33,7 +33,7 @@ global_queue = Queue()  # Global multiprocess queue for sending signals for game
 
 
 def dummy_function(*args, **kwargs):
-    log.warning(f'This dummy function was called which should never happen')
+    log.warning('This dummy function was called which should never happen')
     return kwargs.get('_default', None)
 
 
@@ -271,7 +271,7 @@ def print_capabilities(pyc):
 
     caps = device.evdevice.capabilities(verbose=True)
     print(f"\nAttempting to print KEY capabilities of device: {device.evdevice}:\n")
-    print("\n".join([item[0] if type(item[0]) is str else " / ".join(item[0]) for item in caps[("EV_KEY", 1)]]))
+    print("\n".join([item[0] if isinstance(item[0], str) else " / ".join(item[0]) for item in caps[("EV_KEY", 1)]]))
     print("\n")
     pyc.devManager.close_devices()
     pyc.devManager.delete_inputs()
@@ -293,7 +293,7 @@ def print_key_presses(pyc):
 
         for pevent in device.read_input():
             print(pevent)
-    except KeyboardInterrupt as e:
+    except KeyboardInterrupt:
         print("\nInterrupt detected gracefully exiting...")
     except Exception as e:
         log.error(f"Error in print_key_presses: {e}")

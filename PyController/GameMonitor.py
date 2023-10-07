@@ -43,14 +43,14 @@ class GameMonitor(object):
         def __psHelper(process):
             try:
                 return process.exe().lower()
-            except psutil.NoSuchProcess as e:
+            except psutil.NoSuchProcess:
                 return ''
-            except psutil.AccessDenied as e:
+            except psutil.AccessDenied:
                 try:
                     process.name().lower()
-                except Exception as e:
+                except Exception:
                     return ''
-            except Exception as e:
+            except Exception:
                 return ''
 
         try:
@@ -79,7 +79,7 @@ class GameMonitor(object):
 
     def find_profile(self, game):
         for profile, values in self.settings.profilesConfig.items():
-            if type(values['executable']) is list:
+            if isinstance(values['executable'], list):
                 for exe in values['executable']:
                     if exe.lower() in game:
                         return profile

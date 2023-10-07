@@ -134,7 +134,7 @@ class SettingsManager(object):
             return set()
         outGames = []
         for game in [profile['executable'] for profile in self.profilesConfig.values() if 'executable' in profile]:
-            if type(game) is list:
+            if isinstance(game, list):
                 outGames.extend(game)
             else:
                 outGames.append(game)
